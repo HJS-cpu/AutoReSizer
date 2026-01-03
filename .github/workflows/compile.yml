@@ -1,0 +1,22 @@
+name: Compile AHK v2 Script
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: AHK v2 kompilieren
+        uses: CCCC-L/Action-Ahk2Exe@main
+        with:
+          in: AutoReSizer.ahk
+          out: AutoReSizer.exe
+          base: 64 # Wählt zwischen 32 oder 64 Bit
+
+      - name: EXE hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoReSizer
+          path: AutoReSizer.exe
