@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 #SingleInstance Force
 Persistent
 
@@ -747,6 +747,7 @@ ShowRulesManager(*) {
     global RulesManagerGui, RulesListView, BtnEdit, BtnToggle, BtnDelete
     
     if (IsGuiVisible(RulesManagerGui)) {
+        RefreshRulesList()
         WinActivate("ahk_id " RulesManagerGui.Hwnd)
         return
     }
