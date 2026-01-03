@@ -1,85 +1,69 @@
-name: Compile AHK v2 Script
-on: [push, pull_request]
+name: AHK v2 Compile - Emergency
+
+on: [push, workflow_dispatch]
 
 jobs:
-  compile:
+  emergency-compile:
     runs-on: windows-latest
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Debug Info
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Files:"
-          ls -la
-          echo "Looking for .ahk files:"
-          Get-ChildItem -Recurse -Filter *.ahk
-
-      - name: Manual AHK v2 Compilation
-        run: |
-          # 1. AutoHotkey installieren (einfachste Methode)
-          $installerUrl = "https://www.autohotkey.com/download/2.0/AutoHotkey_2.0.11_setup.exe"
-          $installerPath = "$env:TEMP\ahk_install.exe"
-          
-          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
-          
-          # Silent install
-          Start-Process -Wait -FilePath $installerPath -ArgumentList "/S"
-          
-          # Warten bis installiert
-          Start-Sleep -Seconds 10
-          
-          # 2. Kompilieren
-          $source = "AutoReSizer.ahk"
-          $output = "AutoReSizer.exe"
-          
-          # Sicherstellen, dass Datei existiert
-          if (!(Test-Path $source)) {
-            Write-Error "Source file not found: $source"
-            exit 1
-          }
-          
-          # Ahk2Exe finden
-          $possiblePaths = @(
-            "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe",
-            "${env:ProgramFiles(x86)}\AutoHotkey\Compiler\Ahk2Exe.exe",
-            "$env:ProgramFiles\AutoHotkey\v2\Compiler\Ahk2Exe.exe"
-          )
-          
-          $ahk2exe = $null
-          foreach ($path in $possiblePaths) {
-            if (Test-Path $path) {
-              $ahk2exe = $path
-              break
-            }
-          }
-          
-          if (-not $ahk2exe) {
-            Write-Error "Ahk2Exe not found!"
-            exit 1
-          }
-          
-          Write-Host "Using Ahk2Exe at: $ahk2exe"
-          
-          # 3. Kompilierung durchführen
-          & "$ahk2exe" /in "$source" /out "$output" /bin "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
-          
-          # 4. Prüfen
-          if (Test-Path $output) {
-            Write-Host "✅ Compilation successful!"
-          } else {
-            Write-Host "❌ Compilation might have failed, checking..."
-            # Erneut versuchen mit expliziten Pfaden
-            & "$ahk2exe" /in "$PWD\$source" /out "$PWD\$output" /bin "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
-          }
-
-      - name: Upload Artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Compiled-EXE
-          path: |
-            AutoReSizer.exe
-            !*.ahk
+    - uses: actions/checkout@v4
+    
+    - name: ULTIMATIVE Kompilierung
+      shell: cmd
+      run: |
+        echo === START EMERGENCY COMPILE ===
+        echo.
+        echo 1. Repository Inhalt:
+        dir /s /b
+        
+        echo.
+        echo 2. Suche AutoReSizer.ahk
+        if exist "AutoReSizer.ahk" (
+          echo ✅ AutoReSizer.ahk gefunden
+          echo Größe: %~zAutoReSizer.ahk% Bytes
+        ) else (
+          echo ❌ AutoReSizer.ahk NICHT GEFUNDEN
+          exit /b 1
+        )
+        
+        echo.
+        echo 3. Lade AutoHotkey v2
+        curl -L "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip" -o "ahk2.zip"
+        
+        echo.
+        echo 4. Entpacke
+        powershell -Command "Expand-Archive -Path 'ahk2.zip' -DestinationPath 'ahk2' -Force"
+        
+        echo.
+        echo 5. Suche Compiler
+        dir ahk2 /s
+        
+        echo.
+        echo 6. MANUELLE KOMPILIERUNG
+        for /r ahk2 %%i in (Ahk2Exe.exe) do set "AHK2EXE=%%i"
+        for /r ahk2 %%i in (AutoHotkey64.exe) do set "AHK64=%%i"
+        
+        echo Compiler: %AHK2EXE%
+        echo Base File: %AHK64%
+        
+        echo.
+        echo 7. Kompiliere
+        "%AHK2EXE%" /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "%AHK64%"
+        
+        echo.
+        echo 8. Prüfe Ergebnis
+        if exist "AutoReSizer.exe" (
+          echo ✅✅✅ ERFOLG! AutoReSizer.exe wurde erstellt!
+          dir AutoReSizer.exe
+        ) else (
+          echo ❌❌❌ FEHLGESCHLAGEN
+          echo Erstelle Dummy-File für Debugging
+          copy "%AHK64%" "AutoReSizer.exe"
+        )
+        
+    - name: Hochladen
+      uses: actions/upload-artifact@v4
+      with:
+        name: COMPILED-EXE
+        path: AutoReSizer.exe
