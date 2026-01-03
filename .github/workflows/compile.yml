@@ -1,80 +1,85 @@
 name: Compile AHK v2 Script
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+on: [push, pull_request]
 
 jobs:
   compile:
     runs-on: windows-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Setup AutoHotkey Environment
-        shell: powershell
+      - name: Debug Info
         run: |
-          # Temp-Verzeichnis
-          $tempDir = "C:\ahk_temp"
-          New-Item -ItemType Directory -Path $tempDir -Force
-          
-          # AutoHotkey v2 herunterladen
-          $downloadUrl = "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip"
-          $zipPath = "$tempDir\ahk.zip"
-          
-          Write-Host "Downloading AutoHotkey v2.0.11..."
-          Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath
-          
-          Write-Host "Extracting..."
-          Expand-Archive -Path $zipPath -DestinationPath "$tempDir\ahk" -Force
-          
-          # Pfade setzen
-          $ahkDir = "$tempDir\ahk"
-          $compiler = Get-ChildItem -Path $ahkDir -Recurse -Filter "Ahk2Exe.exe" | Select-Object -First 1
-          $baseFile = Get-ChildItem -Path $ahkDir -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1
-          
-          Write-Host "Compiler found at: $($compiler.FullName)"
-          Write-Host "Base file found at: $($baseFile.FullName)"
-          
-          # Environment Variables setzen für nächste Steps
-          echo "AHK2EXE_PATH=$($compiler.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "AHK_BASE_PATH=$($baseFile.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "Current directory:"
+          pwd
+          echo "Files:"
+          ls -la
+          echo "Looking for .ahk files:"
+          Get-ChildItem -Recurse -Filter *.ahk
 
-      - name: Compile Script
-        shell: powershell
+      - name: Manual AHK v2 Compilation
         run: |
-          Write-Host "Compiling AutoReSizer.ahk..."
-          Write-Host "Source file exists: $(Test-Path 'AutoReSizer.ahk')"
+          # 1. AutoHotkey installieren (einfachste Methode)
+          $installerUrl = "https://www.autohotkey.com/download/2.0/AutoHotkey_2.0.11_setup.exe"
+          $installerPath = "$env:TEMP\ahk_install.exe"
           
-          if (!(Test-Path 'AutoReSizer.ahk')) {
-            Write-Host "Current directory:"
-            Get-Location
-            Write-Host "Files in directory:"
-            Get-ChildItem
+          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
+          
+          # Silent install
+          Start-Process -Wait -FilePath $installerPath -ArgumentList "/S"
+          
+          # Warten bis installiert
+          Start-Sleep -Seconds 10
+          
+          # 2. Kompilieren
+          $source = "AutoReSizer.ahk"
+          $output = "AutoReSizer.exe"
+          
+          # Sicherstellen, dass Datei existiert
+          if (!(Test-Path $source)) {
+            Write-Error "Source file not found: $source"
             exit 1
           }
           
-          # Kompilieren
-          & "$env:AHK2EXE_PATH" /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "$env:AHK_BASE_PATH"
+          # Ahk2Exe finden
+          $possiblePaths = @(
+            "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe",
+            "${env:ProgramFiles(x86)}\AutoHotkey\Compiler\Ahk2Exe.exe",
+            "$env:ProgramFiles\AutoHotkey\v2\Compiler\Ahk2Exe.exe"
+          )
           
-          # Prüfen
-          if (Test-Path "AutoReSizer.exe") {
-            Write-Host "✅ Success! Compiled file size: $((Get-Item 'AutoReSizer.exe').Length) bytes"
+          $ahk2exe = $null
+          foreach ($path in $possiblePaths) {
+            if (Test-Path $path) {
+              $ahk2exe = $path
+              break
+            }
+          }
+          
+          if (-not $ahk2exe) {
+            Write-Error "Ahk2Exe not found!"
+            exit 1
+          }
+          
+          Write-Host "Using Ahk2Exe at: $ahk2exe"
+          
+          # 3. Kompilierung durchführen
+          & "$ahk2exe" /in "$source" /out "$output" /bin "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
+          
+          # 4. Prüfen
+          if (Test-Path $output) {
+            Write-Host "✅ Compilation successful!"
           } else {
-            Write-Host "❌ Compilation failed"
-            Write-Host "Trying alternative method..."
-            
-            # Alternative: Versuche direkt mit AutoHotkey zu kompilieren
-            $ahkExe = Get-ChildItem -Path "C:\ahk_temp\ahk" -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1
-            Start-Process -Wait -FilePath $ahkExe.FullName -ArgumentList "`"$env:AHK2EXE_PATH`" /in `"AutoReSizer.ahk`" /out `"AutoReSizer.exe`" /bin `"$ahkExe.FullName`""
+            Write-Host "❌ Compilation might have failed, checking..."
+            # Erneut versuchen mit expliziten Pfaden
+            & "$ahk2exe" /in "$PWD\$source" /out "$PWD\$output" /bin "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
           }
 
       - name: Upload Artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: AutoReSizer
-          path: AutoReSizer.exe
-          retention-days: 7
+          name: Compiled-EXE
+          path: |
+            AutoReSizer.exe
+            !*.ahk
