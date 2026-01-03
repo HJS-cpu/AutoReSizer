@@ -9,17 +9,23 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Download AutoHotkey
+      - name: Download AutoHotkey v1 (Compiler)
         shell: pwsh
         run: |
           Invoke-WebRequest `
             https://github.com/AutoHotkey/AutoHotkey/releases/download/v1.1.37.02/AutoHotkey_1.1.37.02.zip `
-            -OutFile ahk.zip
+            -OutFile ahk1.zip
+          Expand-Archive ahk1.zip C:\AutoHotkey
 
-          Expand-Archive ahk.zip C:\AutoHotkey
+      - name: Download AutoHotkey v2 (Interpreter)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip `
+            -OutFile ahk2.zip
+          Expand-Archive ahk2.zip C:\AutoHotkey\v2
 
       - name: Compile AHK v2 Script
         shell: pwsh
@@ -29,9 +35,9 @@ jobs:
           $src     = "$env:GITHUB_WORKSPACE\AutoReSizer.ahk"
           $out     = "$env:GITHUB_WORKSPACE\AutoReSizer.exe"
 
-          if (!(Test-Path $src)) { throw "Source file not found" }
           if (!(Test-Path $ahk2exe)) { throw "Ahk2Exe not found" }
-          if (!(Test-Path $bin)) { throw "AutoHotkey64.exe not found" }
+          if (!(Test-Path $bin))     { throw "AutoHotkey64.exe not found" }
+          if (!(Test-Path $src))     { throw "Source not found" }
 
           & $ahk2exe /in "$src" /out "$out" /bin "$bin"
 
@@ -39,8 +45,7 @@ jobs:
             throw "Compilation failed"
           }
 
-      - name: Upload EXE
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: AutoReSizer
           path: AutoReSizer.exe
