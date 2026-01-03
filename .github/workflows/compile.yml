@@ -1,64 +1,46 @@
-name: Compile AHK v2 - Simple
-
-on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch:
+name: Compile AHK v2 Script
+on: [push, workflow_dispatch]
 
 jobs:
   compile:
     runs-on: windows-latest
-    
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Download and Extract AHK v2
-      run: |
-        # Lade AHK v2 ZIP herunter
-        curl -L https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip -o ahk.zip
-        
-        # Entpacke
-        7z x ahk.zip -oahk
-        
-        # Zeige Inhalt
-        dir ahk /s /b
-        
-    - name: Find Compiler Files
-      run: |
-        # Suche die Dateien
-        for /r ahk %%i in (Ahk2Exe.exe) do set AHK2EXE=%%i
-        for /r ahk %%i in (AutoHotkey64.exe) do set AHK64=%%i
-        
-        echo AHK2EXE=%AHK2EXE%
-        echo AHK64=%AHK64%
-        
-        # Prüfe ob Dateien existieren
-        if not exist "%AHK2EXE%" (
-          echo ERROR: Ahk2Exe.exe not found!
-          exit /b 1
-        )
-        
-        if not exist "%AHK64%" (
-          echo ERROR: AutoHotkey64.exe not found!
-          exit /b 1
-        )
-        
-    - name: Compile Script
-      run: |
-        # Kompiliere
-        "%AHK2EXE%" /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "%AHK64%"
-        
-        # Prüfe Ergebnis
-        if exist "AutoReSizer.exe" (
-          echo SUCCESS: AutoReSizer.exe created!
-          dir AutoReSizer.exe
-        ) else (
-          echo ERROR: Compilation failed!
-          exit /b 1
-        )
-        
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: AutoReSizer
-        path: AutoReSizer.exe
+      - uses: actions/checkout@v4
+      
+      - name: Setup AHK v2
+        run: |
+          # Download
+          curl -LO https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip
+          
+          # Extract
+          tar -xf AutoHotkey_2.0.11.zip || 7z x AutoHotkey_2.0.11.zip -oahk
+          
+          # Find files
+          find . -name "Ahk2Exe.exe" -type f
+          find . -name "AutoHotkey64.exe" -type f
+          
+      - name: Compile
+        run: |
+          # Set paths
+          AHK2EXE=$(find . -name "Ahk2Exe.exe" -type f | head -1)
+          AHK64=$(find . -name "AutoHotkey64.exe" -type f | head -1)
+          
+          echo "Using: $AHK2EXE"
+          echo "Base: $AHK64"
+          
+          # Compile
+          "$AHK2EXE" //in "AutoReSizer.ahk" //out "AutoReSizer.exe" //bin "$AHK64"
+          
+          # Check
+          if [ -f "AutoReSizer.exe" ]; then
+            echo "✅ Success!"
+            ls -la "AutoReSizer.exe"
+          else
+            echo "❌ Failed!"
+            exit 1
+          fi
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AutoReSizer
+          path: AutoReSizer.exe
