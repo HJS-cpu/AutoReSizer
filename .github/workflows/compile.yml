@@ -38,8 +38,11 @@ jobs:
             /out "AutoReSizer.exe" `
             /bin "C:\AutoHotkey\v2\AutoHotkey64.exe"
 
-      - name: Upload EXE
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: AutoReSizer
-          path: AutoReSizer.exe
+          path: |
+            AutoReSizer.exe
+            Deutsch.lng
+            English.lng
