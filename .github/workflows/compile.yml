@@ -1,157 +1,39 @@
-name: Compile AHK v2 - FINAL WORKING
+name: Compile AHK v2 Script
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   compile:
     runs-on: windows-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
-    - name: Download and setup AHK v2
-      shell: powershell
-      run: |
-        Write-Host "=== Current directory ==="
-        Get-ChildItem
-        
-        # Download AHK v2
-        Write-Host "`nDownloading AutoHotkey v2.0.11..."
-        $url = "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip"
-        Invoke-WebRequest -Uri $url -OutFile "ahk.zip"
-        
-        # Extract
-        Write-Host "Extracting..."
-        Expand-Archive -Path "ahk.zip" -DestinationPath "ahk" -Force
-        
-        # Show ALL files and folders
-        Write-Host "`n=== ALL EXTRACTED FILES ==="
-        Get-ChildItem "ahk" -Recurse | Format-Table Name, Directory
-        
-    - name: Find compiler files
-      shell: powershell
-      run: |
-        Write-Host "=== Searching for compiler files ==="
-        
-        # List ALL .exe files
-        $allExes = Get-ChildItem -Path "ahk" -Recurse -Filter "*.exe"
-        Write-Host "Found EXE files:"
-        $allExes | ForEach-Object { Write-Host "  - $($_.FullName)" }
-        
-        # Check for compiler directory
-        Write-Host "`nChecking for Compiler directory..."
-        $compilerDir = Get-ChildItem -Path "ahk" -Recurse -Directory | Where-Object { $_.Name -eq "Compiler" } | Select-Object -First 1
-        if ($compilerDir) {
-            Write-Host "✓ Found Compiler directory: $($compilerDir.FullName)"
-            Write-Host "Files in Compiler directory:"
-            Get-ChildItem -Path $compilerDir.FullName | Format-Table Name
-        }
-        
-        # Try to find Ahk2Exe - it might be in different places
-        $ahk2exe = $null
-        
-        # Option 1: In Compiler folder
-        if ($compilerDir) {
-            $ahk2exe = Get-ChildItem -Path $compilerDir.FullName -Filter "*.exe" | Select-Object -First 1
-        }
-        
-        # Option 2: Search recursively for any exe that might be the compiler
-        if (-not $ahk2exe) {
-            $ahk2exe = Get-ChildItem -Path "ahk" -Recurse -Filter "*.exe" | 
-                       Where-Object { $_.Name -match "Ahk2Exe|ahk2exe|Compiler" } |
-                       Select-Object -First 1
-        }
-        
-        # Option 3: Just take any exe that isn't AutoHotkeyXX.exe
-        if (-not $ahk2exe) {
-            $ahk2exe = Get-ChildItem -Path "ahk" -Recurse -Filter "*.exe" | 
-                       Where-Object { $_.Name -notmatch "AutoHotkey" } |
-                       Select-Object -First 1
-        }
-        
-        if ($ahk2exe) {
-            Write-Host "✓ Using compiler: $($ahk2exe.FullName)"
-            echo "AHK2EXE=$($ahk2exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        } else {
-            Write-Host "❌ No compiler found!"
+      - name: Install AutoHotkey v2
+        run: |
+          # Install from official source
+          choco install autohotkey --version=2.0.11 -y --no-progress
+          
+      - name: Compile with installed AHK
+        shell: cmd
+        run: |
+          echo Looking for Ahk2Exe...
+          where /r C:\ Ahk2Exe.exe
+          
+          echo Looking for AutoHotkey64.exe...
+          where /r C:\ AutoHotkey64.exe
+          
+          echo Trying to compile...
+          "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe" /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
+          
+          if exist "AutoReSizer.exe" (
+            echo SUCCESS!
+            dir AutoReSizer.exe
+          ) else (
+            echo FAILED!
             exit 1
-        }
-        
-        # Find AutoHotkey64.exe
-        $ahk64 = Get-ChildItem -Path "ahk" -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1
-        if ($ahk64) {
-            Write-Host "✓ Found AutoHotkey64.exe: $($ahk64.FullName)"
-            echo "AHK64=$($ahk64.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        } else {
-            Write-Host "❌ AutoHotkey64.exe not found!"
-            exit 1
-        }
-        
-    - name: Compile with found files
-      shell: powershell
-      run: |
-        Write-Host "=== Compilation ==="
-        Write-Host "Source: AutoReSizer.ahk"
-        Write-Host "Compiler: $env:AHK2EXE"
-        Write-Host "Base: $env:AHK64"
-        
-        # Check what the compiler file actually is
-        $compilerInfo = Get-Item $env:AHK2EXE
-        Write-Host "Compiler file info:"
-        Write-Host "  Name: $($compilerInfo.Name)"
-        Write-Host "  Size: $($compilerInfo.Length) bytes"
-        
-        # Try different approaches
-        Write-Host "`nAttempting compilation..."
-        
-        # Method 1: Direct execution
-        Write-Host "Method 1: Direct execution"
-        & "$env:AHK2EXE" /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "$env:AHK64"
-        
-        if (Test-Path "AutoReSizer.exe") {
-            Write-Host "✅ SUCCESS with Method 1!"
-        } else {
-            Write-Host "Method 1 failed, trying Method 2..."
-            
-            # Method 2: With Start-Process
-            Write-Host "Method 2: Start-Process"
-            Start-Process -FilePath "$env:AHK2EXE" -ArgumentList "/in `"AutoReSizer.ahk`" /out `"AutoReSizer.exe`" /bin `"$env:AHK64`"" -Wait -NoNewWindow
-            
-            if (Test-Path "AutoReSizer.exe") {
-                Write-Host "✅ SUCCESS with Method 2!"
-            } else {
-                Write-Host "Method 2 failed, trying Method 3..."
-                
-                # Method 3: Maybe the "compiler" is actually AutoHotkey itself
-                # Some AHK v2 versions have Ahk2Exe as an AHK script
-                Write-Host "Method 3: Run as AHK script"
-                & "$env:AHK64" "$env:AHK2EXE" /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "$env:AHK64"
-                
-                if (Test-Path "AutoReSizer.exe") {
-                    Write-Host "✅ SUCCESS with Method 3!"
-                } else {
-                    Write-Host "❌ All methods failed"
-                    exit 1
-                }
-            }
-        }
-        
-        # Show result
-        $exeFile = Get-Item "AutoReSizer.exe" -ErrorAction SilentlyContinue
-        if ($exeFile) {
-            Write-Host "`n✅✅✅ COMPILATION SUCCESSFUL! ✅✅✅"
-            Write-Host "Output file: $($exeFile.FullName)"
-            Write-Host "Size: $($exeFile.Length) bytes"
-        }
-        
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: AutoReSizer-EXE
-        path: AutoReSizer.exe
+          )
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AutoReSizer
+          path: AutoReSizer.exe
