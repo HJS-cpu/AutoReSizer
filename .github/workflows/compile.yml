@@ -5,16 +5,20 @@ on: [push, workflow_dispatch]
 jobs:
   compile:
     runs-on: windows-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download AutoHotkey
+      - name: Download AutoHotkey (v1 + v2)
         shell: pwsh
         run: |
-          Invoke-WebRequest https://www.autohotkey.com/download/ahk.zip -OutFile ahk.zip
+          Invoke-WebRequest `
+            https://github.com/AutoHotkey/AutoHotkey/releases/download/v1.1.37.02/AutoHotkey_1.1.37.02.zip `
+            -OutFile ahk.zip
+
           Expand-Archive ahk.zip C:\AutoHotkey
 
-      - name: Compile
+      - name: Compile AHK v2 Script
         shell: pwsh
         run: |
           $ahk2exe = "C:\AutoHotkey\Compiler\Ahk2Exe.exe"
