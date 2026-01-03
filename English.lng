@@ -1,0 +1,154 @@
+﻿; ============================================================
+; AutoReSizer - Language File English
+; Version: 1.5.0
+; ============================================================
+
+[Info]
+LanguageName=English
+LanguageCode=en
+Author=HJS
+
+; ============================================================
+; General / Tray Menu (100-199)
+; ============================================================
+[General]
+100=Manage Rules
+105=Capture Window
+110=Pause
+115=Settings
+120=Exit
+125=Active
+130=PAUSED
+
+; ============================================================
+; About Dialog (200-299)
+; ============================================================
+[About]
+200=About
+205=Version
+210=by
+215=GitHub:
+220=E-Mail:
+225=OK
+
+; ============================================================
+; Settings (300-399)
+; ============================================================
+[Settings]
+300=Settings
+305=Hotkey for Window Capture
+310=Enable Hotkey
+315=Ctrl + Win +
+320=(Enter key)
+325=Example: 'A' results in Ctrl+Win+A
+330=Windows Startup
+335=Start with Windows
+340=OK
+345=Cancel
+350=Language
+355=Change Language...
+
+; ============================================================
+; Rules Manager (400-499)
+; ============================================================
+[RulesManager]
+400=Manage Rules
+405=Status:
+410=Double-click to edit:
+415=Active
+420=Name
+425=Match
+430=Type
+435=Max
+440=New Rule
+445=Edit
+450=Toggle
+455=Delete
+460=Resume
+465=Pause All
+470=Close
+475=(no name)
+480=Yes
+485=No
+
+; ============================================================
+; Capture Window (500-599)
+; ============================================================
+[CaptureWindow]
+500=Capture Window
+505=Rule Name (optional)
+510=Window Information
+515=Title:
+520=Class:
+525=Process:
+530=Current Position/Size
+535=Set Target Values
+540=Maximize Window
+545=Match by:
+550=Class
+555=Title
+560=Add
+565=Test
+570=Cancel
+
+; ============================================================
+; Edit Rule (600-699)
+; ============================================================
+[EditRule]
+600=Edit Rule
+605=Rule Information
+610=Name:
+615=Match:
+620=Type:
+625=Rule Active
+630=Set Target Values
+635=Maximize Window
+640=Match by:
+645=Save
+650=Test
+655=Cancel
+
+; ============================================================
+; Window Picker (700-799)
+; ============================================================
+[WindowPicker]
+700=Select Window
+705=Choose a window (double-click or select):
+710=Title
+715=Class
+720=Select
+725=Cancel
+
+; ============================================================
+; Language Selection (800-899)
+; ============================================================
+[LanguageSelect]
+800=Select Language
+805=Please choose a language:
+810=OK
+815=Cancel
+
+; ============================================================
+; Messages / TrayTips (900-999)
+; ============================================================
+[Messages]
+900=All rules paused
+905=Rules active again
+910=Hotkey enabled:
+915=Hotkey disabled
+920=Rule added:
+925=Rule updated:
+930=Rule deleted:
+935=Rule enabled:
+940=Rule disabled:
+945=Adjusted:
+950=No matching window found for testing!
+955=Window no longer exists!
+960=No windows found!
+965=Please select a window!
+970=Really delete rule?
+975=Confirmation
+980=Invalid Input
+985=Please enter only a single letter (A-Z) or number (0-9).
+990=No language files found!
+995=Error

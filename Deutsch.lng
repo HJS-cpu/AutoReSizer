@@ -1,0 +1,154 @@
+﻿; ============================================================
+; AutoReSizer - Sprachdatei Deutsch
+; Version: 1.5.0
+; ============================================================
+
+[Info]
+LanguageName=Deutsch
+LanguageCode=de
+Author=HJS
+
+; ============================================================
+; Allgemein / Tray-Menü (100-199)
+; ============================================================
+[General]
+100=Regeln verwalten
+105=Fenster erfassen
+110=Pause
+115=Einstellungen
+120=Beenden
+125=Aktiv
+130=PAUSIERT
+
+; ============================================================
+; Über-Dialog (200-299)
+; ============================================================
+[About]
+200=Über
+205=Version
+210=von
+215=GitHub:
+220=E-Mail:
+225=OK
+
+; ============================================================
+; Einstellungen (300-399)
+; ============================================================
+[Settings]
+300=Einstellungen
+305=Hotkey für Fenster festlegen
+310=Hotkey aktivieren
+315=Strg + Win +
+320=(Taste eingeben)
+325=Beispiel: 'A' ergibt Strg+Win+A
+330=Windows-Start
+335=Mit Windows starten
+340=OK
+345=Abbrechen
+350=Sprache
+355=Sprache ändern...
+
+; ============================================================
+; Regeln verwalten (400-499)
+; ============================================================
+[RulesManager]
+400=Regeln verwalten
+405=Status:
+410=Doppelklick zum Bearbeiten:
+415=Aktiv
+420=Name
+425=Match
+430=Typ
+435=Max
+440=Neue Regel
+445=Bearbeiten
+450=Umschalten
+455=Löschen
+460=Fortsetzen
+465=Alle pausieren
+470=Schließen
+475=(kein Name)
+480=Ja
+485=Nein
+
+; ============================================================
+; Fenster erfassen (500-599)
+; ============================================================
+[CaptureWindow]
+500=Fenster erfassen
+505=Regelname (optional)
+510=Fenster-Informationen
+515=Titel:
+520=Klasse:
+525=Prozess:
+530=Aktuelle Position/Größe
+535=Zielwerte festlegen
+540=Fenster maximieren
+545=Erkennung über:
+550=Klasse
+555=Titel
+560=Hinzufügen
+565=Testen
+570=Abbrechen
+
+; ============================================================
+; Regel bearbeiten (600-699)
+; ============================================================
+[EditRule]
+600=Regel bearbeiten
+605=Regel-Informationen
+610=Name:
+615=Match:
+620=Typ:
+625=Regel aktiv
+630=Zielwerte festlegen
+635=Fenster maximieren
+640=Erkennung über:
+645=Speichern
+650=Testen
+655=Abbrechen
+
+; ============================================================
+; Fenster auswählen (700-799)
+; ============================================================
+[WindowPicker]
+700=Fenster auswählen
+705=Wähle ein Fenster (Doppelklick oder Auswählen):
+710=Titel
+715=Klasse
+720=Auswählen
+725=Abbrechen
+
+; ============================================================
+; Sprachauswahl (800-899)
+; ============================================================
+[LanguageSelect]
+800=Sprache wählen
+805=Bitte wähle eine Sprache:
+810=OK
+815=Abbrechen
+
+; ============================================================
+; Meldungen / TrayTips (900-999)
+; ============================================================
+[Messages]
+900=Alle Regeln pausiert
+905=Regeln wieder aktiv
+910=Hotkey aktiviert:
+915=Hotkey deaktiviert
+920=Regel hinzugefügt:
+925=Regel aktualisiert:
+930=Regel gelöscht:
+935=Regel aktiviert:
+940=Regel deaktiviert:
+945=Angepasst:
+950=Kein passendes Fenster gefunden zum Testen!
+955=Fenster existiert nicht mehr!
+960=Keine Fenster gefunden!
+965=Bitte ein Fenster auswählen!
+970=Regel wirklich löschen?
+975=Bestätigung
+980=Ungültige Eingabe
+985=Bitte nur einen einzelnen Buchstaben (A-Z) oder eine Zahl (0-9) eingeben.
+990=Keine Sprachdateien gefunden!
+995=Fehler
