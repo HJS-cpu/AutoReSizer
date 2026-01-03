@@ -12,28 +12,52 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download AutoHotkey v2
+      - name: Download and extract Ahk2Exe Compiler
         run: |
-          curl -L "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11_setup.exe" -o "ahk-setup.exe"
-          Start-Process -Wait -FilePath ".\ahk-setup.exe" -ArgumentList "/S"
+          # Download Ahk2Exe Compiler (extrahiert aus AutoHotkey)
+          $url = "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip"
+          $zipPath = "ahk.zip"
           
-      - name: Compile AHK v2 Script
+          # Download
+          Invoke-WebRequest -Uri $url -OutFile $zipPath
+          
+          # Entpacken
+          Expand-Archive -Path $zipPath -DestinationPath "ahk_temp" -Force
+          
+          # Ahk2Exe.exe finden und kopieren
+          $compilerPath = Get-ChildItem -Path "ahk_temp" -Recurse -Filter "Ahk2Exe.exe" | Select-Object -First 1
+          Copy-Item -Path $compilerPath.FullName -Destination "Ahk2Exe.exe"
+          
+          # AutoHotkey64.exe finden
+          $ahk64Path = Get-ChildItem -Path "ahk_temp" -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1
+          Copy-Item -Path $ahk64Path.FullName -Destination "AutoHotkey64.exe"
+          
+      - name: Compile with Ahk2Exe
         run: |
-          $compileCommand = "`"$env:ProgramFiles\AutoHotkey\Compiler\Ahk2Exe.exe`" /in `"AutoReSizer.ahk`" /out `"AutoReSizer.exe`" /bin `"$env:ProgramFiles\AutoHotkey\v2\AutoHotkey64.exe`""
-          Write-Host "Compiling with command: $compileCommand"
-          Invoke-Expression $compileCommand
+          # Prüfen, ob Quelldatei existiert
+          if (!(Test-Path "AutoReSizer.ahk")) {
+            Write-Host "Error: AutoReSizer.ahk not found!"
+            Get-ChildItem -Recurse | Write-Host
+            exit 1
+          }
           
-      - name: Verify EXE exists
+          # Kompilieren
+          .\Ahk2Exe.exe /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin ".\AutoHotkey64.exe"
+          
+      - name: Check if compilation succeeded
         run: |
           if (Test-Path "AutoReSizer.exe") {
-            Write-Host "✓ Compilation successful! File size: $((Get-Item 'AutoReSizer.exe').Length) bytes"
+            Write-Host "✅ Compilation successful!"
+            Write-Host "File size: $((Get-Item 'AutoReSizer.exe').Length) bytes"
           } else {
-            Write-Host "✗ Compilation failed!"
+            Write-Host "❌ Compilation failed!"
+            Write-Host "Listing directory contents:"
+            Get-ChildItem
             exit 1
           }
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AutoReSizer-EXE
+          name: AutoReSizer-Executable
           path: AutoReSizer.exe
