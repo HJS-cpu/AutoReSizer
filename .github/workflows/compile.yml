@@ -1,46 +1,132 @@
-name: Compile AHK v2 Script
-on: [push, workflow_dispatch]
+name: Compile AHK v2 - FINAL
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   compile:
     runs-on: windows-latest
+    
     steps:
-      - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
       
-      - name: Setup AHK v2
-        run: |
-          # Download
-          curl -LO https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip
-          
-          # Extract
-          tar -xf AutoHotkey_2.0.11.zip || 7z x AutoHotkey_2.0.11.zip -oahk
-          
-          # Find files
-          find . -name "Ahk2Exe.exe" -type f
-          find . -name "AutoHotkey64.exe" -type f
-          
-      - name: Compile
-        run: |
-          # Set paths
-          AHK2EXE=$(find . -name "Ahk2Exe.exe" -type f | head -1)
-          AHK64=$(find . -name "AutoHotkey64.exe" -type f | head -1)
-          
-          echo "Using: $AHK2EXE"
-          echo "Base: $AHK64"
-          
-          # Compile
-          "$AHK2EXE" //in "AutoReSizer.ahk" //out "AutoReSizer.exe" //bin "$AHK64"
-          
-          # Check
-          if [ -f "AutoReSizer.exe" ]; then
-            echo "✅ Success!"
-            ls -la "AutoReSizer.exe"
-          else
-            echo "❌ Failed!"
+    - name: Download and setup AHK v2
+      shell: powershell
+      run: |
+        # Debug: Show files
+        Write-Host "=== Current directory ==="
+        Get-ChildItem
+        Write-Host "========================="
+        
+        # Download AHK v2
+        Write-Host "Downloading AutoHotkey v2.0.11..."
+        $url = "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip"
+        $zipFile = "ahk_v2.zip"
+        
+        Invoke-WebRequest -Uri $url -OutFile $zipFile
+        
+        # Extract
+        Write-Host "Extracting..."
+        Expand-Archive -Path $zipFile -DestinationPath "ahk_v2" -Force
+        
+        # Show extracted files
+        Write-Host "=== Extracted files ==="
+        Get-ChildItem "ahk_v2" -Recurse | Select-Object Name, Directory | Format-Table
+        
+    - name: Find compiler files
+      shell: powershell
+      run: |
+        # Find Ahk2Exe.exe
+        $ahk2exe = Get-ChildItem -Path "ahk_v2" -Recurse -Include "Ahk2Exe.exe" | Select-Object -First 1
+        if ($ahk2exe) {
+            Write-Host "✅ Found Ahk2Exe.exe: $($ahk2exe.FullName)"
+            echo "AHK2EXE=$($ahk2exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        } else {
+            Write-Host "❌ Ahk2Exe.exe not found!"
+            # List all exe files to debug
+            Get-ChildItem -Path "ahk_v2" -Recurse -Include "*.exe" | Select-Object FullName
             exit 1
-          fi
-          
-      - uses: actions/upload-artifact@v4
-        with:
-          name: AutoReSizer
-          path: AutoReSizer.exe
+        }
+        
+        # Find AutoHotkey64.exe
+        $ahk64 = Get-ChildItem -Path "ahk_v2" -Recurse -Include "AutoHotkey64.exe" | Select-Object -First 1
+        if ($ahk64) {
+            Write-Host "✅ Found AutoHotkey64.exe: $($ahk64.FullName)"
+            echo "AHK64=$($ahk64.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        } else {
+            Write-Host "❌ AutoHotkey64.exe not found!"
+            # Try alternative names
+            $ahk64 = Get-ChildItem -Path "ahk_v2" -Recurse -Include "*.exe" | Where-Object { $_.Name -like "*64*.exe" } | Select-Object -First 1
+            if ($ahk64) {
+                Write-Host "⚠️ Using alternative: $($ahk64.FullName)"
+                echo "AHK64=$($ahk64.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            } else {
+                exit 1
+            }
+        }
+        
+    - name: Compile AutoReSizer.ahk
+      shell: powershell
+      run: |
+        Write-Host "=== Compilation Start ==="
+        
+        # Check source file
+        if (-not (Test-Path "AutoReSizer.ahk")) {
+            Write-Host "❌ ERROR: AutoReSizer.ahk not found in current directory!"
+            Write-Host "Current directory: $pwd"
+            Write-Host "Files:"
+            Get-ChildItem
+            exit 1
+        }
+        
+        Write-Host "Source file: $((Get-Item 'AutoReSizer.ahk').FullName)"
+        Write-Host "Compiler: $env:AHK2EXE"
+        Write-Host "Base file: $env:AHK64"
+        
+        # Run compilation
+        Write-Host "Running compiler..."
+        & "$env:AHK2EXE" /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "$env:AHK64"
+        
+        # Check result
+        if (Test-Path "AutoReSizer.exe") {
+            $size = (Get-Item "AutoReSizer.exe").Length
+            Write-Host "✅ SUCCESS: AutoReSizer.exe created ($size bytes)"
+        } else {
+            Write-Host "❌ ERROR: Compilation failed!"
+            Write-Host "Trying alternative approach..."
+            
+            # Alternative: Use PowerShell to run with arguments
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "$env:AHK2EXE"
+            $psi.Arguments = '/in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "' + $env:AHK64 + '"'
+            $psi.UseShellExecute = $false
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError = $true
+            
+            $process = [System.Diagnostics.Process]::Start($psi)
+            $output = $process.StandardOutput.ReadToEnd()
+            $errorOutput = $process.StandardError.ReadToEnd()
+            $process.WaitForExit()
+            
+            Write-Host "Compiler output: $output"
+            Write-Host "Compiler error: $errorOutput"
+            Write-Host "Exit code: $($process.ExitCode)"
+            
+            if (Test-Path "AutoReSizer.exe") {
+                Write-Host "✅ SUCCESS on second attempt!"
+            } else {
+                exit 1
+            }
+        }
+        
+    - name: Upload executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: AutoReSizer-v2
+        path: AutoReSizer.exe
+        retention-days: 7
