@@ -1,15 +1,16 @@
-name: Compile AHK v2 Script
+name: Compile AutoHotkey v2
 
 on:
   push:
   workflow_dispatch:
 
 jobs:
-  compile:
+  build:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Download AutoHotkey v1 (Compiler)
         shell: pwsh
@@ -27,25 +28,18 @@ jobs:
             -OutFile ahk2.zip
           Expand-Archive ahk2.zip C:\AutoHotkey\v2
 
-      - name: Compile AHK v2 Script
+      - name: Compile script
         shell: pwsh
         run: |
-          $ahk2exe = "C:\AutoHotkey\Compiler\Ahk2Exe.exe"
-          $bin     = "C:\AutoHotkey\v2\AutoHotkey64.exe"
-          $src     = "$env:GITHUB_WORKSPACE\AutoReSizer.ahk"
-          $out     = "$env:GITHUB_WORKSPACE\AutoReSizer.exe"
+          Set-Location $env:GITHUB_WORKSPACE
 
-          if (!(Test-Path $ahk2exe)) { throw "Ahk2Exe not found" }
-          if (!(Test-Path $bin))     { throw "AutoHotkey64.exe not found" }
-          if (!(Test-Path $src))     { throw "Source not found" }
+          & "C:\AutoHotkey\Compiler\Ahk2Exe.exe" `
+            /in "AutoReSizer.ahk" `
+            /out "AutoReSizer.exe" `
+            /bin "C:\AutoHotkey\v2\AutoHotkey64.exe"
 
-          & $ahk2exe /in "$src" /out "$out" /bin "$bin"
-
-          if (!(Test-Path $out)) {
-            throw "Compilation failed"
-          }
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
         with:
           name: AutoReSizer
           path: AutoReSizer.exe
