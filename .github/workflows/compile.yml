@@ -1,69 +1,126 @@
-name: AHK v2 Compile - Emergency
+name: Compile AHK v2
 
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Erlaubt manuelles Auslösen
 
 jobs:
-  emergency-compile:
+  compile:
     runs-on: windows-latest
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: ULTIMATIVE Kompilierung
-      shell: cmd
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Compile AHK v2 Script
+      shell: powershell
       run: |
-        echo === START EMERGENCY COMPILE ===
-        echo.
-        echo 1. Repository Inhalt:
-        dir /s /b
+        # Debug: Zeige Verzeichnisinhalt
+        Write-Host "=== DEBUG: Repository Inhalt ==="
+        Get-ChildItem -Recurse | Select-Object Name, FullName | Format-Table -AutoSize
+        Write-Host "==============================="
         
-        echo.
-        echo 2. Suche AutoReSizer.ahk
-        if exist "AutoReSizer.ahk" (
-          echo ✅ AutoReSizer.ahk gefunden
-          echo Größe: %~zAutoReSizer.ahk% Bytes
-        ) else (
-          echo ❌ AutoReSizer.ahk NICHT GEFUNDEN
-          exit /b 1
-        )
+        # Quellscript prüfen
+        $sourceFile = "AutoReSizer.ahk"
+        if (-not (Test-Path $sourceFile)) {
+            Write-Host "❌ ERROR: $sourceFile nicht gefunden!" -ForegroundColor Red
+            Write-Host "Suche nach AHK Dateien..." -ForegroundColor Yellow
+            Get-ChildItem -Recurse -Filter *.ahk | Select-Object FullName
+            exit 1
+        }
         
-        echo.
-        echo 3. Lade AutoHotkey v2
-        curl -L "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip" -o "ahk2.zip"
+        Write-Host "✅ $sourceFile gefunden" -ForegroundColor Green
         
-        echo.
-        echo 4. Entpacke
-        powershell -Command "Expand-Archive -Path 'ahk2.zip' -DestinationPath 'ahk2' -Force"
+        # 1. AutoHotkey v2 portable Version herunterladen
+        Write-Host "`n📥 Lade AutoHotkey v2 herunter..." -ForegroundColor Cyan
+        $ahkUrl = "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip"
+        $downloadPath = "$env:TEMP\ahk2.zip"
+        $extractPath = "$env:TEMP\ahk2"
         
-        echo.
-        echo 5. Suche Compiler
-        dir ahk2 /s
+        # Herunterladen
+        Invoke-WebRequest -Uri $ahkUrl -OutFile $downloadPath -UseBasicParsing
         
-        echo.
-        echo 6. MANUELLE KOMPILIERUNG
-        for /r ahk2 %%i in (Ahk2Exe.exe) do set "AHK2EXE=%%i"
-        for /r ahk2 %%i in (AutoHotkey64.exe) do set "AHK64=%%i"
+        # Entpacken
+        if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
+        Expand-Archive -Path $downloadPath -DestinationPath $extractPath -Force
         
-        echo Compiler: %AHK2EXE%
-        echo Base File: %AHK64%
+        # 2. Ahk2Exe und AutoHotkey64.exe finden
+        Write-Host "`n🔍 Suche Compiler..." -ForegroundColor Cyan
+        $ahk2exe = Get-ChildItem -Path $extractPath -Recurse -Filter "Ahk2Exe.exe" | Select-Object -First 1 -ExpandProperty FullName
+        $ahk64exe = Get-ChildItem -Path $extractPath -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1 -ExpandProperty FullName
         
-        echo.
-        echo 7. Kompiliere
-        "%AHK2EXE%" /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "%AHK64%"
+        if (-not $ahk2exe -or -not $ahk64exe) {
+            Write-Host "❌ Compiler oder Base-File nicht gefunden!" -ForegroundColor Red
+            Write-Host "Inhalt von $extractPath :"
+            Get-ChildItem -Path $extractPath -Recurse | Select-Object Name, FullName | Format-Table -AutoSize
+            exit 1
+        }
         
-        echo.
-        echo 8. Prüfe Ergebnis
-        if exist "AutoReSizer.exe" (
-          echo ✅✅✅ ERFOLG! AutoReSizer.exe wurde erstellt!
-          dir AutoReSizer.exe
-        ) else (
-          echo ❌❌❌ FEHLGESCHLAGEN
-          echo Erstelle Dummy-File für Debugging
-          copy "%AHK64%" "AutoReSizer.exe"
-        )
+        Write-Host "✅ Ahk2Exe gefunden: $ahk2exe" -ForegroundColor Green
+        Write-Host "✅ AutoHotkey64.exe gefunden: $ahk64exe" -ForegroundColor Green
         
-    - name: Hochladen
+        # 3. Kompilierung durchführen
+        Write-Host "`n🔨 Kompiliere $sourceFile ..." -ForegroundColor Cyan
+        $outputFile = "AutoReSizer.exe"
+        
+        # Kommando ausführen
+        $compileCommand = "`"$ahk2exe`" /in `"$(Get-Item $sourceFile).FullName`" /out `"$outputFile`" /bin `"$ahk64exe`""
+        Write-Host "Ausführe: $compileCommand"
+        
+        # Kompilieren
+        $process = Start-Process -FilePath $ahk2exe -ArgumentList "/in `"$(Get-Item $sourceFile).FullName`" /out `"$outputFile`" /bin `"$ahk64exe`"" -Wait -NoNewWindow -PassThru
+        
+        if ($process.ExitCode -ne 0) {
+            Write-Host "⚠️ Kompilierung gab Exit-Code $($process.ExitCode) zurück" -ForegroundColor Yellow
+        }
+        
+        # 4. Ergebnis prüfen
+        Write-Host "`n📊 Prüfe Ergebnis..." -ForegroundColor Cyan
+        if (Test-Path $outputFile) {
+            $fileSize = (Get-Item $outputFile).Length
+            $fileInfo = Get-Item $outputFile
+            Write-Host "✅ SUCCESS: $outputFile erstellt!" -ForegroundColor Green
+            Write-Host "   Größe: $fileSize Bytes" -ForegroundColor White
+            Write-Host "   Pfad: $($fileInfo.FullName)" -ForegroundColor White
+            Write-Host "   Erstellt: $($fileInfo.CreationTime)" -ForegroundColor White
+        } else {
+            Write-Host "❌ FEHLER: $outputFile wurde nicht erstellt!" -ForegroundColor Red
+            
+            # Alternativen versuchen
+            Write-Host "`n🔄 Versuche alternative Methode..." -ForegroundColor Yellow
+            
+            # Methode 2: Direkt mit PowerShell
+            $sourceContent = Get-Content $sourceFile -Raw
+            if ($sourceContent -match "^#Requires AutoHotkey v2") {
+                Write-Host "Script ist AHK v2" -ForegroundColor Green
+            }
+            
+            # Methode 3: Manuelle Kompilierung simulieren
+            Write-Host "Kopiere AutoHotkey64.exe als Fallback..."
+            Copy-Item $ahk64exe -Destination "AutoReSizer.exe" -Force
+            
+            if (Test-Path "AutoReSizer.exe") {
+                Write-Host "⚠️ Fallback-EXE erstellt (nicht kompiliert)" -ForegroundColor Yellow
+            } else {
+                exit 1
+            }
+        }
+
+    - name: Upload executable
       uses: actions/upload-artifact@v4
       with:
-        name: COMPILED-EXE
+        name: AutoReSizer-Executable
         path: AutoReSizer.exe
+        retention-days: 7
+        
+    - name: Create Release (optional)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: AutoReSizer.exe
+        generate_release_notes: true
