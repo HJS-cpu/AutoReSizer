@@ -1,22 +1,46 @@
-- name: Compile AHK v2 Script
-  shell: pwsh
-  run: |
-    $ahk2exe = "C:\AutoHotkey\Compiler\Ahk2Exe.exe"
-    $bin     = "C:\AutoHotkey\v2\AutoHotkey64.exe"
-    $src     = "$env:GITHUB_WORKSPACE\AutoReSizer.ahk"
-    $out     = "$env:GITHUB_WORKSPACE\AutoReSizer.exe"
+name: Compile AHK v2 Script
 
-    Write-Host "AHK2EXE: $ahk2exe"
-    Write-Host "BIN:     $bin"
-    Write-Host "SRC:     $src"
-    Write-Host "OUT:     $out"
+on:
+  push:
+  workflow_dispatch:
 
-    if (!(Test-Path $src)) { throw "Source file not found!" }
-    if (!(Test-Path $ahk2exe)) { throw "Ahk2Exe not found!" }
-    if (!(Test-Path $bin)) { throw "AutoHotkey64.exe not found!" }
+jobs:
+  compile:
+    runs-on: windows-latest
 
-    & $ahk2exe /in "$src" /out "$out" /bin "$bin" /silent
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    if (!(Test-Path $out)) {
-      throw "Compilation failed – EXE not created"
-    }
+      - name: Download AutoHotkey
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            https://github.com/AutoHotkey/AutoHotkey/releases/download/v1.1.37.02/AutoHotkey_1.1.37.02.zip `
+            -OutFile ahk.zip
+
+          Expand-Archive ahk.zip C:\AutoHotkey
+
+      - name: Compile AHK v2 Script
+        shell: pwsh
+        run: |
+          $ahk2exe = "C:\AutoHotkey\Compiler\Ahk2Exe.exe"
+          $bin     = "C:\AutoHotkey\v2\AutoHotkey64.exe"
+          $src     = "$env:GITHUB_WORKSPACE\AutoReSizer.ahk"
+          $out     = "$env:GITHUB_WORKSPACE\AutoReSizer.exe"
+
+          if (!(Test-Path $src)) { throw "Source file not found" }
+          if (!(Test-Path $ahk2exe)) { throw "Ahk2Exe not found" }
+          if (!(Test-Path $bin)) { throw "AutoHotkey64.exe not found" }
+
+          & $ahk2exe /in "$src" /out "$out" /bin "$bin"
+
+          if (!(Test-Path $out)) {
+            throw "Compilation failed"
+          }
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoReSizer
+          path: AutoReSizer.exe
