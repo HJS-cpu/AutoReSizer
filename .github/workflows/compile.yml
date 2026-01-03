@@ -12,25 +12,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download AutoHotkey v2
-        run: |
-          curl -L "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11_setup.exe" -o "ahk-setup.exe"
-          Start-Process -Wait -FilePath ".\ahk-setup.exe" -ArgumentList "/S"
-          
       - name: Compile AHK v2 Script
-        run: |
-          $compileCommand = "`"$env:ProgramFiles\AutoHotkey\Compiler\Ahk2Exe.exe`" /in `"AutoReSizer.ahk`" /out `"AutoReSizer.exe`" /bin `"$env:ProgramFiles\AutoHotkey\v2\AutoHotkey64.exe`""
-          Write-Host "Compiling with command: $compileCommand"
-          Invoke-Expression $compileCommand
-          
-      - name: Verify EXE exists
-        run: |
-          if (Test-Path "AutoReSizer.exe") {
-            Write-Host "✓ Compilation successful! File size: $((Get-Item 'AutoReSizer.exe').Length) bytes"
-          } else {
-            Write-Host "✗ Compilation failed!"
-            exit 1
-          }
+        uses: samhocevar/ahk2exe-action@v1
+        with:
+          source: AutoReSizer.ahk
+          target: AutoReSizer.exe
+          version: v2.0.11
+          arch: x64
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
