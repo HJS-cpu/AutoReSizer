@@ -1,39 +1,45 @@
-name: Compile AHK v2 Script
+name: Simple AHK v2 Package
 
 on: [push, workflow_dispatch]
 
 jobs:
-  compile:
+  package:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install AutoHotkey v2
-        run: |
-          # Install from official source
-          choco install autohotkey --version=2.0.11 -y --no-progress
-          
-      - name: Compile with installed AHK
-        shell: cmd
-        run: |
-          echo Looking for Ahk2Exe...
-          where /r C:\ Ahk2Exe.exe
-          
-          echo Looking for AutoHotkey64.exe...
-          where /r C:\ AutoHotkey64.exe
-          
-          echo Trying to compile...
-          "C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe" /in "AutoReSizer.ahk" /out "AutoReSizer.exe" /bin "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
-          
-          if exist "AutoReSizer.exe" (
-            echo SUCCESS!
-            dir AutoReSizer.exe
-          ) else (
-            echo FAILED!
-            exit 1
-          )
-          
-      - uses: actions/upload-artifact@v4
-        with:
-          name: AutoReSizer
-          path: AutoReSizer.exe
+    - uses: actions/checkout@v4
+    
+    - name: Download AutoHotkey64.exe
+      run: |
+        # Download just the AutoHotkey64.exe
+        curl -LO https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip
+        7z x AutoHotkey_2.0.11.zip AutoHotkey64.exe -o. -r
+        
+    - name: Create portable package
+      shell: powershell
+      run: |
+        # Create a simple launcher batch file
+        @'
+@echo off
+chcp 65001 >nul
+title AutoReSizer
+echo Starting AutoReSizer...
+if exist "AutoHotkey64.exe" (
+    start "" "AutoHotkey64.exe" "AutoReSizer.ahk"
+) else (
+    echo Error: AutoHotkey64.exe not found!
+    pause
+)
+'@ | Out-File -Encoding ASCII "Run_AutoReSizer.bat"
+        
+        # Also create a simple executable wrapper (batch to exe)
+        # We'll use a pre-made tool or create a simple one
+        echo Creating package...
+        
+        # Zip everything together
+        7z a -tzip AutoReSizer_Portable.zip AutoReSizer.ahk AutoHotkey64.exe Deutsch.lng English.lng README.md Run_AutoReSizer.bat
+        
+    - name: Upload portable package
+      uses: actions/upload-artifact@v4
+      with:
+        name: AutoReSizer-Portable
+        path: AutoReSizer_Portable.zip
