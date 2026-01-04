@@ -1,17 +1,18 @@
 #Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 #SingleInstance Force
 Persistent
 
 ; ============================================================
 ; AutoReSizer - Window Size/Position Manager
-; Version: 1.5.2 - UI Harmonisierung + ToolTips
+; Version: 1.5.3 - Kompaktes Design
 ; ============================================================
 
 global AppName := "AutoReSizer"
-global AppVersion := "1.5.2"
+global AppVersion := "1.5.3"
 global AppAuthor := "HJS"
 global AppGitHub := "https://github.com/HJS-cpu/AutoReSizer"
-global AppEmail := "autoresizer@gmx.net"
+global AppEmail := "autoresizer@gmx.com"
 
 global WindowRules := []
 global ProcessedWindows := Map()
@@ -89,7 +90,6 @@ OnMouseMove(wParam, lParam, msg, hwnd) {
     static lastHwnd := 0
     static lastTime := 0
     
-    ; Nur alle 100ms prüfen für Performance
     if (A_TickCount - lastTime < 100)
         return
     lastTime := A_TickCount
@@ -152,17 +152,14 @@ LoadLanguageFile(langName) {
     Loop Read, langFile {
         line := Trim(A_LoopReadLine)
         
-        ; Leere Zeilen und Kommentare überspringen
         if (line = "" || SubStr(line, 1, 1) = ";")
             continue
         
-        ; Sektion erkennen
         if (SubStr(line, 1, 1) = "[" && SubStr(line, -1) = "]") {
             currentSection := SubStr(line, 2, -1)
             continue
         }
         
-        ; Key=Value parsen
         if (currentSection != "" && InStr(line, "=")) {
             pos := InStr(line, "=")
             key := Trim(SubStr(line, 1, pos - 1))
@@ -180,9 +177,8 @@ GetAvailableLanguages() {
     languages := []
     
     Loop Files, A_ScriptDir "\*.lng" {
-        langName := SubStr(A_LoopFileName, 1, -4)  ; .lng entfernen
+        langName := SubStr(A_LoopFileName, 1, -4)
         
-        ; Sprachname aus Datei lesen
         try {
             displayName := IniRead(A_LoopFilePath, "Info", "LanguageName", langName)
             languages.Push({file: langName, name: displayName})
@@ -206,31 +202,28 @@ ShowLanguageSelect(isFirstRun := false) {
     languages := GetAvailableLanguages()
     
     if (languages.Length = 0) {
-        MsgBox("No language files (.lng) found! / Keine Sprachdateien (.lng) gefunden!", "Error / Fehler", "Icon! 4096")
+        MsgBox("No language files (.lng) found!", "Error", "Icon! 4096")
         ExitApp()
     }
     
-    ; Bei erstem Start nur AppName, sonst lokalisiert
     if (isFirstRun) {
         titleText := AppName
         promptText := ""
         okText := "OK"
         cancelText := ""
     } else {
-        titleText := AppName " - " L("LanguageSelect", "800")
+        titleText := L("LanguageSelect", "800")
         promptText := L("LanguageSelect", "805")
         okText := L("LanguageSelect", "810")
         cancelText := L("LanguageSelect", "815")
     }
-    
-    LanguageGui := Gui("+AlwaysOnTop", titleText)
-    LanguageGui.SetFont("s10")
+    LanguageGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox -SysMenu", titleText)
+    LanguageGui.SetFont("s9")
     
     if (promptText != "")
-        LanguageGui.Add("Text", "w300", promptText)
+        LanguageGui.Add("Text", "w200", promptText)
     
-    ; Sprachliste erstellen
-    langListBox := LanguageGui.Add("ListBox", "w300 h150 vLangSelect")
+    langListBox := LanguageGui.Add("ListBox", "w200 h100 vLangSelect")
     
     selectedIndex := 1
     for i, lang in languages {
@@ -240,13 +233,12 @@ ShowLanguageSelect(isFirstRun := false) {
     }
     langListBox.Choose(selectedIndex)
     
-    ; Buttons zentriert
     if (!isFirstRun) {
-        LanguageGui.Add("Button", "x55 w100", okText).OnEvent("Click", (*) => ApplyLanguageSelection(languages, isFirstRun))
-        LanguageGui.Add("Button", "x+10 w100", cancelText).OnEvent("Click", (*) => CloseLanguageSelect())
+        LanguageGui.Add("Button", "x30 w70", okText).OnEvent("Click", (*) => ApplyLanguageSelection(languages, isFirstRun))
+        LanguageGui.Add("Button", "x+5 w70", cancelText).OnEvent("Click", (*) => CloseLanguageSelect())
         LanguageGui.OnEvent("Close", (*) => CloseLanguageSelect())
     } else {
-        LanguageGui.Add("Button", "x110 w100", okText).OnEvent("Click", (*) => ApplyLanguageSelection(languages, isFirstRun))
+        LanguageGui.Add("Button", "x75 w70", okText).OnEvent("Click", (*) => ApplyLanguageSelection(languages, isFirstRun))
         LanguageGui.OnEvent("Close", (*) => ExitApp())
     }
     
@@ -269,12 +261,11 @@ ApplyLanguageSelection(languages, isFirstRun) {
     LoadLanguageFile(selectedLang.file)
     SaveLanguageSetting()
     
-    ; Tray-Menü neu aufbauen
     BuildTrayMenu()
     UpdateTrayIcon()
     
     if (!isFirstRun) {
-        TrayTip(AppName, "Sprache geändert / Language changed", 1)
+        TrayTip(AppName, "Language changed", 1)
     }
 }
 
@@ -285,8 +276,6 @@ CloseLanguageSelect() {
     LanguageGui := ""
 }
 
-; ============================================================
-; Tray-Menü aufbauen
 ; ============================================================
 BuildTrayMenu() {
     global AppName, AppVersion
@@ -310,8 +299,6 @@ BuildTrayMenu() {
 }
 
 ; ============================================================
-; Über-Dialog anzeigen
-; ============================================================
 ShowAbout(*) {
     global AboutGui, AppName, AppVersion, AppAuthor, AppGitHub, AppEmail
     
@@ -319,33 +306,40 @@ ShowAbout(*) {
         WinActivate("ahk_id " AboutGui.Hwnd)
         return
     }
+    AboutGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox", L("About", "200"))
     
-    AboutGui := Gui("+AlwaysOnTop", L("About", "200") " " AppName)
-    AboutGui.SetFont("s12 bold")
-    AboutGui.Add("Text", "w300 Center", AppName)
+    AboutGui.SetFont("s11 bold")
+    AboutGui.Add("Text", "x20 w280 Center", AppName " v" AppVersion)
     
-    AboutGui.SetFont("s10 norm")
-    AboutGui.Add("Text", "w300 Center", L("About", "205") " " AppVersion)
-    AboutGui.Add("Text", "w300 Center yp+25", L("About", "210") " " AppAuthor)
+    AboutGui.SetFont("s9 norm")
+    AboutGui.Add("Text", "x20 w280 Center", L("About", "210") " " AppAuthor)
     
-    AboutGui.Add("Text", "w300 Center yp+35", L("About", "215"))
-    AboutGui.SetFont("s10 underline cBlue")
-    AboutGui.Add("Text", "w300 Center yp+20 vGitHubLink", AppGitHub)
-    AboutGui["GitHubLink"].OnEvent("Click", (*) => Run(AppGitHub))
+    AboutGui.SetFont("s8 norm cGray")
+    AboutGui.Add("Text", "x20 w280 Center", L("About", "230"))
     
-    AboutGui.SetFont("s10 norm")
-    AboutGui.Add("Text", "w300 Center yp+30", L("About", "220"))
-    AboutGui.SetFont("s10 underline cBlue")
-    AboutGui.Add("Text", "w300 Center yp+20 vEmailLink", AppEmail)
-    AboutGui["EmailLink"].OnEvent("Click", (*) => Run("mailto:" AppEmail))
+    AboutGui.SetFont("s8 norm cGray")
+    AboutGui.Add("Text", "x20 w280 Center", L("About", "235"))
     
-    AboutGui.SetFont("s10 norm")
-    AboutGui.Add("Button", "w100 yp+40 x110", L("About", "225")).OnEvent("Click", (*) => CloseAbout())
+    AboutGui.Add("Text", "x10 h10", "")
+    
+    AboutGui.SetFont("s9 bold cBlack")
+    AboutGui.Add("Text", "x20 w45", "WWW:")
+    AboutGui.SetFont("s9 bold")
+    AboutGui.Add("Link", "x70 yp -TabStop", '<a href="' AppGitHub '">' AppGitHub '</a>')
+    
+    AboutGui.SetFont("s9 bold cBlack")
+    AboutGui.Add("Text", "x20 w45", "E-Mail:")
+    AboutGui.SetFont("s9 bold")
+    AboutGui.Add("Link", "x70 yp -TabStop", '<a href="mailto:' AppEmail '">' AppEmail '</a>')
+    
+    AboutGui.Add("Text", "x10 h15", "")
+    
+    AboutGui.SetFont("s9 norm")
+    AboutGui.Add("Button", "x130 w70", L("About", "225")).OnEvent("Click", (*) => CloseAbout())
     AboutGui.OnEvent("Close", (*) => CloseAbout())
     
     AboutGui.Show()
 }
-
 ; ============================================================
 CloseAbout() {
     global AboutGui
@@ -353,8 +347,6 @@ CloseAbout() {
     AboutGui := ""
 }
 
-; ============================================================
-; Einstellungen laden
 ; ============================================================
 LoadSettings() {
     global IniFile, HotkeyEnabled, HotkeyKey, AutostartEnabled
@@ -369,8 +361,6 @@ LoadSettings() {
 }
 
 ; ============================================================
-; Einstellungen speichern
-; ============================================================
 SaveSettings() {
     global IniFile, HotkeyEnabled, HotkeyKey
     
@@ -378,8 +368,6 @@ SaveSettings() {
     IniWrite(HotkeyKey, IniFile, "Settings", "HotkeyKey")
 }
 
-; ============================================================
-; Autostart prüfen
 ; ============================================================
 CheckAutostart() {
     global AutostartRegKey, AppName
@@ -392,8 +380,6 @@ CheckAutostart() {
     }
 }
 
-; ============================================================
-; Autostart setzen/entfernen
 ; ============================================================
 SetAutostart(enable) {
     global AutostartRegKey, AppName, AutostartEnabled
@@ -420,8 +406,6 @@ SetAutostart(enable) {
 }
 
 ; ============================================================
-; Hotkey registrieren/deregistrieren
-; ============================================================
 RegisterHotkey() {
     global HotkeyEnabled, HotkeyKey, CurrentHotkey
     
@@ -446,8 +430,6 @@ RegisterHotkey() {
 }
 
 ; ============================================================
-; Prüfen ob GUI existiert und sichtbar ist
-; ============================================================
 IsGuiVisible(guiVar) {
     if (!IsObject(guiVar))
         return false
@@ -459,8 +441,6 @@ IsGuiVisible(guiVar) {
     }
 }
 
-; ============================================================
-; Alle Dialoge schließen
 ; ============================================================
 CloseAllDialogs() {
     global MyGui, RulesManagerGui, WindowPickerGui, SettingsGui, AboutGui, LanguageGui
@@ -541,8 +521,6 @@ UpdateTrayIcon() {
 }
 
 ; ============================================================
-; Einstellungen Dialog
-; ============================================================
 ShowSettings(*) {
     global SettingsGui, HotkeyEnabled, HotkeyKey, AutostartEnabled, AppName
     global SettingsHotkeyEdit, SettingsHotkeyChk, SettingsAutostartChk
@@ -554,38 +532,36 @@ ShowSettings(*) {
     
     AutostartEnabled := CheckAutostart()
     
-    SettingsGui := Gui("+AlwaysOnTop", AppName " - " L("Settings", "300"))
-    SettingsGui.SetFont("s10")
+    SettingsGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox -Resize", L("Settings", "300"))
+    SettingsGui.SetFont("s9")
     
     ; Hotkey Bereich
-    SettingsGui.Add("GroupBox", "w350 h120", L("Settings", "305"))
+    SettingsGui.Add("GroupBox", "w280 h90", L("Settings", "305"))
     
-    SettingsHotkeyChk := SettingsGui.Add("Checkbox", "xp+10 yp+25", L("Settings", "310"))
+    SettingsHotkeyChk := SettingsGui.Add("Checkbox", "xp+10 yp+20", L("Settings", "310"))
     SettingsHotkeyChk.Value := HotkeyEnabled
     SettingsHotkeyChk.OnEvent("Click", OnHotkeyToggle)
     
-    SettingsGui.Add("Text", "x20 yp+35", L("Settings", "315"))
-    SettingsHotkeyEdit := SettingsGui.Add("Edit", "x110 yp-3 w50 Uppercase Limit1 Center", HotkeyKey)
+    SettingsGui.Add("Text", "x20 yp+25", L("Settings", "315"))
+    SettingsHotkeyEdit := SettingsGui.Add("Edit", "x90 yp-3 w30 Uppercase Limit1 Center", HotkeyKey)
     SettingsHotkeyEdit.Enabled := HotkeyEnabled
     
-    SettingsGui.Add("Text", "x170 yp+3 cGray", L("Settings", "320"))
-    
-    SettingsGui.Add("Text", "x20 yp+30 cGray w320", L("Settings", "325"))
+    SettingsGui.Add("Text", "x130 yp+3 cGray", L("Settings", "320"))
     
     ; Autostart Bereich
-    SettingsGui.Add("GroupBox", "x10 yp+40 w350 h60", L("Settings", "330"))
+    SettingsGui.Add("GroupBox", "x10 yp+30 w280 h45", L("Settings", "330"))
     
-    SettingsAutostartChk := SettingsGui.Add("Checkbox", "xp+10 yp+25", L("Settings", "335"))
+    SettingsAutostartChk := SettingsGui.Add("Checkbox", "xp+10 yp+18", L("Settings", "335"))
     SettingsAutostartChk.Value := AutostartEnabled
     
     ; Sprache Bereich
-    SettingsGui.Add("GroupBox", "x10 yp+45 w350 h60", L("Settings", "350"))
+    SettingsGui.Add("GroupBox", "x10 yp+35 w280 h45", L("Settings", "350"))
     
-    SettingsGui.Add("Button", "xp+10 yp+22 w150", L("Settings", "355")).OnEvent("Click", (*) => OpenLanguageFromSettings())
+    SettingsGui.Add("Button", "xp+10 yp+15 w120", L("Settings", "355")).OnEvent("Click", (*) => OpenLanguageFromSettings())
     
-    ; Buttons zentriert
-    SettingsGui.Add("Button", "x80 yp+55 w100", L("Settings", "340")).OnEvent("Click", SaveSettingsAndClose)
-    SettingsGui.Add("Button", "x+10 w100", L("Settings", "345")).OnEvent("Click", (*) => CloseSettings())
+    ; Buttons
+	SettingsGui.Add("Button", "x70 yp+40 w80", L("Settings", "340")).OnEvent("Click", SaveSettingsAndClose)
+    SettingsGui.Add("Button", "x+5 w80", L("Settings", "345")).OnEvent("Click", (*) => CloseSettings())
     SettingsGui.OnEvent("Close", (*) => CloseSettings())
     
     SettingsGui.Show()
@@ -740,8 +716,6 @@ TrackActiveWindow() {
 }
 
 ; ============================================================
-; Regelverwaltung - ListView
-; ============================================================
 ShowRulesManager(*) {
     global WindowRules, GlobalPaused, AppName
     global RulesManagerGui, RulesListView, BtnEdit, BtnToggle, BtnDelete
@@ -760,15 +734,13 @@ ShowRulesManager(*) {
     
     SetTimer(CheckWindows, 0)
     
-    RulesManagerGui := Gui("+AlwaysOnTop", AppName " - " L("RulesManager", "400"))
-    RulesManagerGui.SetFont("s10")
+    RulesManagerGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox -Resize", L("RulesManager", "400"))
+    RulesManagerGui.SetFont("s9")
     
     statusText := GlobalPaused ? "⚠️ " L("General", "130") : "✓ " L("General", "125")
-    RulesManagerGui.Add("Text", "w700 vGlobalStatus", L("RulesManager", "405") " " statusText)
+    RulesManagerGui.Add("Text", "w500", L("RulesManager", "405") " " statusText)
     
-    RulesManagerGui.Add("Text", , L("RulesManager", "410"))
-    
-    RulesListView := RulesManagerGui.Add("ListView", "w700 h300 vRulesLV", [
+    RulesListView := RulesManagerGui.Add("ListView", "w500 h200 vRulesLV", [
         L("RulesManager", "415"),
         L("RulesManager", "420"),
         L("RulesManager", "425"),
@@ -779,27 +751,27 @@ ShowRulesManager(*) {
     RulesListView.OnEvent("DoubleClick", EditRuleFromList)
     RulesListView.OnEvent("ItemSelect", OnRuleSelect)
     
-    RulesListView.ModifyCol(1, "45 Center")
-    RulesListView.ModifyCol(2, 120)
-    RulesListView.ModifyCol(3, 150)
-    RulesListView.ModifyCol(4, 55)
-    RulesListView.ModifyCol(5, 40)
-    RulesListView.ModifyCol(6, 50)
-    RulesListView.ModifyCol(7, 50)
-    RulesListView.ModifyCol(8, 50)
-    RulesListView.ModifyCol(9, 50)
+    RulesListView.ModifyCol(1, "40 Center")
+    RulesListView.ModifyCol(2, 90)
+    RulesListView.ModifyCol(3, 110)
+    RulesListView.ModifyCol(4, 40)
+    RulesListView.ModifyCol(5, 35)
+    RulesListView.ModifyCol(6, 40)
+    RulesListView.ModifyCol(7, 40)
+    RulesListView.ModifyCol(8, 40)
+    RulesListView.ModifyCol(9, 40)
     
-    ; Buttons mit gleichem Abstand (w100, Abstand 10px zwischen allen)
-    RulesManagerGui.Add("Button", "x10 w100", L("RulesManager", "440")).OnEvent("Click", NewRuleFromManager)
-    BtnEdit := RulesManagerGui.Add("Button", "x120 yp w100 Disabled", L("RulesManager", "445"))
+    ; Buttons kompakt
+    RulesManagerGui.Add("Button", "x10 w70", L("RulesManager", "440")).OnEvent("Click", NewRuleFromManager)
+    BtnEdit := RulesManagerGui.Add("Button", "x85 yp w70 Disabled", L("RulesManager", "445"))
     BtnEdit.OnEvent("Click", EditRuleFromList)
-    BtnToggle := RulesManagerGui.Add("Button", "x230 yp w100 Disabled", L("RulesManager", "450"))
+    BtnToggle := RulesManagerGui.Add("Button", "x160 yp w70 Disabled", L("RulesManager", "450"))
     BtnToggle.OnEvent("Click", ToggleRuleFromList)
-    BtnDelete := RulesManagerGui.Add("Button", "x340 yp w100 Disabled", L("RulesManager", "455"))
+    BtnDelete := RulesManagerGui.Add("Button", "x235 yp w70 Disabled", L("RulesManager", "455"))
     BtnDelete.OnEvent("Click", DeleteRuleFromList)
     pauseBtnText := GlobalPaused ? L("RulesManager", "460") : L("RulesManager", "465")
-    RulesManagerGui.Add("Button", "x450 yp w130", pauseBtnText).OnEvent("Click", (*) => ToggleGlobalFromManager())
-    RulesManagerGui.Add("Button", "x590 yp w100", L("RulesManager", "470")).OnEvent("Click", (*) => CloseRulesManager())
+    RulesManagerGui.Add("Button", "x310 yp w100", pauseBtnText).OnEvent("Click", (*) => ToggleGlobalFromManager())
+    RulesManagerGui.Add("Button", "x415 yp w70", L("RulesManager", "470")).OnEvent("Click", (*) => CloseRulesManager())
     RulesManagerGui.OnEvent("Close", (*) => CloseRulesManager())
     
     RefreshRulesList()
@@ -837,7 +809,6 @@ UpdateRuleButtons(hasSelection) {
 
 ; ============================================================
 OnRuleSelect(LV, Item, Selected) {
-    ; Prüfen ob irgendein Eintrag ausgewählt ist
     hasSelection := (LV.GetNext(0) > 0)
     UpdateRuleButtons(hasSelection)
 }
@@ -951,39 +922,39 @@ EditRule(rule) {
     
     FindMatchingWindow(rule)
     
-    MyGui := Gui("+AlwaysOnTop", AppName " - " L("EditRule", "600"))
-    MyGui.SetFont("s10")
+    MyGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox -Resize", L("EditRule", "600"))
+    MyGui.SetFont("s9")
     
-    MyGui.Add("GroupBox", "w400 h140", L("EditRule", "605"))
-    MyGui.Add("Text", "xp+10 yp+25", L("EditRule", "610"))
-    MyRuleName := MyGui.Add("Edit", "x100 yp-3 w295", rule.name)
-    MyGui.Add("Text", "x15 yp+35", L("EditRule", "615"))
-    MyGui.Add("Edit", "x100 yp-3 w295 ReadOnly", rule.match)
-    MyGui.Add("Text", "x15 yp+35", L("EditRule", "620"))
+    MyGui.Add("GroupBox", "w320 h105", L("EditRule", "605"))
+    MyGui.Add("Text", "xp+10 yp+18", L("EditRule", "610"))
+    MyRuleName := MyGui.Add("Edit", "x80 yp-3 w240", rule.name)
+    MyGui.Add("Text", "x15 yp+25", L("EditRule", "615"))
+    MyGui.Add("Edit", "x80 yp-3 w240 ReadOnly", rule.match)
+    MyGui.Add("Text", "x15 yp+25", L("EditRule", "620"))
     typeText := rule.matchType = "class" ? L("CaptureWindow", "550") : L("CaptureWindow", "555")
-    MyGui.Add("Edit", "x100 yp-3 w295 ReadOnly", typeText)
+    MyGui.Add("Edit", "x80 yp-3 w240 ReadOnly", typeText)
     
-    MyEnabledChk := MyGui.Add("Checkbox", "x15 yp+35", L("EditRule", "625"))
+    MyEnabledChk := MyGui.Add("Checkbox", "x15 yp+25", L("EditRule", "625"))
     MyEnabledChk.Value := rule.enabled
     
-    MyGui.Add("GroupBox", "x10 yp+35 w400 h130", L("EditRule", "630"))
+    MyGui.Add("GroupBox", "x10 yp+25 w320 h95", L("EditRule", "630"))
     
-    MyMaximizeChk := MyGui.Add("Checkbox", "xp+10 yp+25", L("EditRule", "635"))
+    MyMaximizeChk := MyGui.Add("Checkbox", "xp+10 yp+18", L("EditRule", "635"))
     MyMaximizeChk.Value := rule.maximize
     MyMaximizeChk.OnEvent("Click", OnMaximizeToggle)
     
-    MyGui.Add("Text", "x20 yp+35", "X:")
-    MyEdX := MyGui.Add("Edit", "x40 yp-3 w70 Number", rule.x)
-    MyGui.Add("Text", "x120 yp+3", "Y:")
-    MyEdY := MyGui.Add("Edit", "x145 yp-3 w70 Number", rule.y)
-    MyGui.Add("Text", "x225 yp+3", "W:")
-    MyEdW := MyGui.Add("Edit", "x255 yp-3 w70 Number", rule.w)
-    MyGui.Add("Text", "x335 yp+3", "H:")
-    MyEdH := MyGui.Add("Edit", "x360 yp-3 w45 Number", rule.h)
+    MyGui.Add("Text", "x20 yp+25", "X:")
+    MyEdX := MyGui.Add("Edit", "x38 yp-3 w50 Number", rule.x)
+    MyGui.Add("Text", "x95 yp+3", "Y:")
+    MyEdY := MyGui.Add("Edit", "x113 yp-3 w50 Number", rule.y)
+    MyGui.Add("Text", "x170 yp+3", "W:")
+    MyEdW := MyGui.Add("Edit", "x193 yp-3 w50 Number", rule.w)
+    MyGui.Add("Text", "x250 yp+3", "H:")
+    MyEdH := MyGui.Add("Edit", "x273 yp-3 w50 Number", rule.h)
     
-    MyGui.Add("Text", "x20 yp+40", L("EditRule", "640"))
+    MyGui.Add("Text", "x20 yp+28", L("EditRule", "640"))
     chooseIndex := (rule.matchType = "class") ? 1 : 2
-    MyMatchDDL := MyGui.Add("DropDownList", "x120 yp-3 w150 Disabled Choose" chooseIndex, [L("CaptureWindow", "550"), L("CaptureWindow", "555")])
+    MyMatchDDL := MyGui.Add("DropDownList", "x100 yp-3 w120 Disabled Choose" chooseIndex, [L("CaptureWindow", "550"), L("CaptureWindow", "555")])
     
     if (rule.maximize) {
         MyEdX.Enabled := false
@@ -992,10 +963,9 @@ EditRule(rule) {
         MyEdH.Enabled := false
     }
     
-    ; Buttons mit gleichem Abstand: x10, x150, x290 (Abstand jeweils 20px)
-    MyGui.Add("Button", "x10 yp+50 w120", L("EditRule", "645")).OnEvent("Click", DoSaveEditedRule)
-    MyGui.Add("Button", "x150 yp w120", L("EditRule", "650")).OnEvent("Click", DoTestEditedRule)
-    MyGui.Add("Button", "x290 yp w120", L("EditRule", "655")).OnEvent("Click", DoCancelToManager)
+    MyGui.Add("Button", "x10 yp+35 w100", L("EditRule", "645")).OnEvent("Click", DoSaveEditedRule)
+    MyGui.Add("Button", "x115 yp w100", L("EditRule", "650")).OnEvent("Click", DoTestEditedRule)
+    MyGui.Add("Button", "x220 yp w100", L("EditRule", "655")).OnEvent("Click", DoCancelToManager)
     MyGui.OnEvent("Close", DoCancelToManager)
     
     MyGui.Show()
@@ -1144,23 +1114,22 @@ ShowWindowPicker(*) {
         return
     }
     
-    WindowPickerGui := Gui("+AlwaysOnTop", AppName " - " L("WindowPicker", "700"))
-    WindowPickerGui.SetFont("s10")
+    WindowPickerGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox -Resize", L("WindowPicker", "700"))
+    WindowPickerGui.SetFont("s9")
     
     WindowPickerGui.Add("Text", , L("WindowPicker", "705"))
     
-    LV := WindowPickerGui.Add("ListView", "w500 h300 vWindowLV", [L("WindowPicker", "710"), L("WindowPicker", "715")])
+    LV := WindowPickerGui.Add("ListView", "w400 h200 vWindowLV", [L("WindowPicker", "710"), L("WindowPicker", "715")])
     LV.OnEvent("DoubleClick", SelectFromList)
     
     for win in windowList
         LV.Add(, win.title, win.class)
     
-    LV.ModifyCol(1, 300)
-    LV.ModifyCol(2, 180)
+    LV.ModifyCol(1, 230)
+    LV.ModifyCol(2, 150)
     
-    ; Buttons mit gleichem Abstand
-    WindowPickerGui.Add("Button", "x10 w100", L("WindowPicker", "720")).OnEvent("Click", SelectFromList)
-    WindowPickerGui.Add("Button", "x120 yp w100", L("WindowPicker", "725")).OnEvent("Click", (*) => ClosePickerGui())
+    WindowPickerGui.Add("Button", "x10 w80", L("WindowPicker", "720")).OnEvent("Click", SelectFromList)
+    WindowPickerGui.Add("Button", "x95 yp w80", L("WindowPicker", "725")).OnEvent("Click", (*) => ClosePickerGui())
     WindowPickerGui.OnEvent("Close", (*) => ClosePickerGui())
     
     WindowPickerGui.windowList := windowList
@@ -1246,52 +1215,50 @@ CaptureSpecificWindow(hwnd) {
     CaptureClass := wclass
     CaptureTitle := title
     
-    ; ToolTip-Map leeren für neuen Dialog
     ToolTipControls := Map()
+
+    MyGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox -Resize", L("CaptureWindow", "500"))
+    MyGui.SetFont("s9")
     
-    MyGui := Gui("+AlwaysOnTop", AppName " - " L("CaptureWindow", "500"))
-    MyGui.SetFont("s10")
+    MyGui.Add("GroupBox", "w320 h40", L("CaptureWindow", "505"))
+    MyRuleName := MyGui.Add("Edit", "xp+10 yp+15 w300")
     
-    MyGui.Add("GroupBox", "w400 h50", L("CaptureWindow", "505"))
-    MyRuleName := MyGui.Add("Edit", "xp+10 yp+20 w380")
-    
-    MyGui.Add("GroupBox", "x10 yp+45 w400 h105", L("CaptureWindow", "510"))
-    MyGui.Add("Text", "xp+10 yp+25", L("CaptureWindow", "515"))
-    edTitle := MyGui.Add("Edit", "x100 yp-3 w295 h21 ReadOnly", title)
+    MyGui.Add("GroupBox", "x10 yp+35 w320 h75", L("CaptureWindow", "510"))
+    MyGui.Add("Text", "xp+10 yp+18", L("CaptureWindow", "515"))
+    edTitle := MyGui.Add("Edit", "x80 yp-3 w240 h20 ReadOnly", title)
     ToolTipControls[edTitle.Hwnd] := title
     
-    MyGui.Add("Text", "x15 yp+28", L("CaptureWindow", "520"))
-    edClass := MyGui.Add("Edit", "x100 yp-3 w295 h21 ReadOnly", wclass)
+    MyGui.Add("Text", "x15 yp+23", L("CaptureWindow", "520"))
+    edClass := MyGui.Add("Edit", "x80 yp-3 w240 h20 ReadOnly", wclass)
     ToolTipControls[edClass.Hwnd] := wclass
     
-    MyGui.Add("Text", "x15 yp+28", L("CaptureWindow", "525"))
-    edProcess := MyGui.Add("Edit", "x100 yp-3 w295 h21 ReadOnly", processName)
+    MyGui.Add("Text", "x15 yp+23", L("CaptureWindow", "525"))
+    edProcess := MyGui.Add("Edit", "x80 yp-3 w240 h20 ReadOnly", processName)
     ToolTipControls[edProcess.Hwnd] := processName
     
-    MyGui.Add("GroupBox", "x10 yp+35 w400 h55", L("CaptureWindow", "530"))
-    MyGui.Add("Text", "xp+10 yp+25", "X: " curX "  Y: " curY "  W: " curW "  H: " curH)
+    MyGui.Add("GroupBox", "x10 yp+30 w320 h35", L("CaptureWindow", "530"))
+    MyGui.Add("Text", "xp+10 yp+15", "X: " curX "  Y: " curY "  W: " curW "  H: " curH)
     
-    MyGui.Add("GroupBox", "x10 yp+45 w400 h130", L("CaptureWindow", "535"))
+    MyGui.Add("GroupBox", "x10 yp+30 w320 h95", L("CaptureWindow", "535"))
     
-    MyMaximizeChk := MyGui.Add("Checkbox", "xp+10 yp+25", L("CaptureWindow", "540"))
+    MyMaximizeChk := MyGui.Add("Checkbox", "xp+10 yp+18", L("CaptureWindow", "540"))
     MyMaximizeChk.OnEvent("Click", OnMaximizeToggle)
     
-    MyGui.Add("Text", "x20 yp+35", "X:")
-    MyEdX := MyGui.Add("Edit", "x40 yp-3 w70 Number", curX)
-    MyGui.Add("Text", "x120 yp+3", "Y:")
-    MyEdY := MyGui.Add("Edit", "x145 yp-3 w70 Number", curY)
-    MyGui.Add("Text", "x225 yp+3", "W:")
-    MyEdW := MyGui.Add("Edit", "x255 yp-3 w70 Number", curW)
-    MyGui.Add("Text", "x335 yp+3", "H:")
-    MyEdH := MyGui.Add("Edit", "x360 yp-3 w45 Number", curH)
+    MyGui.Add("Text", "x20 yp+25", "X:")
+    MyEdX := MyGui.Add("Edit", "x38 yp-3 w50 Number", curX)
+    MyGui.Add("Text", "x95 yp+3", "Y:")
+    MyEdY := MyGui.Add("Edit", "x113 yp-3 w50 Number", curY)
+    MyGui.Add("Text", "x170 yp+3", "W:")
+    MyEdW := MyGui.Add("Edit", "x193 yp-3 w50 Number", curW)
+    MyGui.Add("Text", "x250 yp+3", "H:")
+    MyEdH := MyGui.Add("Edit", "x273 yp-3 w50 Number", curH)
     
-    MyGui.Add("Text", "x20 yp+40", L("CaptureWindow", "545"))
-    MyMatchDDL := MyGui.Add("DropDownList", "x120 yp-3 w150 Choose1", [L("CaptureWindow", "550"), L("CaptureWindow", "555")])
+    MyGui.Add("Text", "x20 yp+28", L("CaptureWindow", "545"))
+    MyMatchDDL := MyGui.Add("DropDownList", "x100 yp-3 w120 Choose1", [L("CaptureWindow", "550"), L("CaptureWindow", "555")])
     
-    ; Buttons mit gleichem Abstand: x10, x150, x290 (Abstand jeweils 20px)
-    MyGui.Add("Button", "x10 yp+50 w120", L("CaptureWindow", "560")).OnEvent("Click", DoAddRule)
-    MyGui.Add("Button", "x150 yp w120", L("CaptureWindow", "565")).OnEvent("Click", DoTestRule)
-    MyGui.Add("Button", "x290 yp w120", L("CaptureWindow", "570")).OnEvent("Click", DoCancelToManager)
+    MyGui.Add("Button", "x10 yp+35 w100", L("CaptureWindow", "560")).OnEvent("Click", DoAddRule)
+    MyGui.Add("Button", "x115 yp w100", L("CaptureWindow", "565")).OnEvent("Click", DoTestRule)
+    MyGui.Add("Button", "x220 yp w100", L("CaptureWindow", "570")).OnEvent("Click", DoCancelToManager)
     MyGui.OnEvent("Close", DoCancelToManager)
     
     MyGui.Show()
@@ -1323,7 +1290,6 @@ DoAddRule(*) {
     matchChoice := MyMatchDDL.Text
     doMaximize := MyMaximizeChk.Value
     
-    ; Vergleich mit lokalisiertem Text
     matchType := (matchChoice = L("CaptureWindow", "550")) ? "class" : "title"
     matchValue := (matchType = "class") ? CaptureClass : CaptureTitle
     
