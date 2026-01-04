@@ -1,179 +1,181 @@
 # AutoReSizer
 
-**AutoReSizer** ist ein modernes Window Management Tool für Windows, das Fenster automatisch in der gewünschten Größe und Position positioniert. Es ist die Neuauflage des klassischen AutoSizer-Konzepts, komplett neu entwickelt mit AutoHotkey v2.
+**AutoReSizer** is a modern window management tool for Windows that automatically positions windows in the desired size and position. It is the reimagined version of the classic AutoSizer concept, completely rebuilt with AutoHotkey v2.
 
 ![AutoReSizer Version](https://img.shields.io/badge/version-1.5.3-blue)
 ![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2.0-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![License](https://img.shields.io/badge/license-MIT-orange)
+![License](https://img.shields.io/badge/license-GPL--3.0-orange)
 
 ## 🎯 Features
 
-- **Automatische Fensterpositionierung**: Definiere Regeln für bestimmte Fenster, die automatisch angewendet werden
-- **Flexible Fenster-Erkennung**: Fenster können über Fenstertitel oder Fensterklasse identifiziert werden
-- **Maximieren-Option**: Fenster können auch automatisch maximiert werden
-- **Hotkey-Capture**: Erfasse Fensterinformationen schnell per Tastenkombination (konfigurierbar)
-- **Fensterauswahl-Liste**: Wähle aus allen aktuell geöffneten Fenstern das gewünschte aus
-- **Regel-Verwaltung**: Bearbeite, lösche oder deaktiviere Regeln einzeln
-- **Globale Pause**: Pausiere alle Regeln temporär mit einem Klick
-- **Persistente Speicherung**: Alle Einstellungen werden automatisch in einer INI-Datei gespeichert
-- **Autostart-Option**: Starte AutoReSizer automatisch mit Windows
-- **Mehrsprachig**: Unterstützung für Deutsch und Englisch (weitere Sprachen einfach hinzufügbar)
-- **Kompaktes Design**: Schlanke, moderne Benutzeroberfläche
+- **Automatic Window Positioning**: Define rules for specific windows that are applied automatically
+- **Flexible Window Detection**: Windows can be identified by window title or window class
+- **Maximize Option**: Windows can also be automatically maximized
+- **Hotkey Capture**: Capture window information quickly via keyboard shortcut (configurable)
+- **Window Selection List**: Select from all currently open windows
+- **Rule Management**: Edit, delete or disable rules individually
+- **Global Pause**: Pause all rules temporarily with one click
+- **Persistent Storage**: All settings are automatically saved in an INI file
+- **Autostart Option**: Start AutoReSizer automatically with Windows
+- **Multi-language**: Support for German and English (additional languages easily added)
+- **Compact Design**: Sleek, modern user interface
 
-## 📋 Systemvoraussetzungen
+## 📋 System Requirements
 
-- Windows 7 oder höher (64-Bit)
-- [AutoHotkey v2.0](https://www.autohotkey.com/) (nur für .ahk Version)
-- Für die .exe Version werden keine zusätzlichen Abhängigkeiten benötigt
+- Windows 7 or higher (64-bit)
+- [AutoHotkey v2.0](https://www.autohotkey.com/) (only for .ahk version)
+- No additional dependencies required for the .exe version
 
 ## 🚀 Installation
 
-### Variante 1: Kompilierte Version (.exe)
-1. Lade die neueste `AutoReSizer.exe` von den [Releases](https://github.com/HJS-cpu/AutoReSizer/releases) herunter
-2. Starte die Datei - fertig!
+### Option 1: Compiled Version (.exe)
+1. Download the latest `AutoReSizer.exe` from the [Releases](https://github.com/HJS-cpu/AutoReSizer/releases)
+2. Run the file - done!
 
-### Variante 2: AutoHotkey-Skript (.ahk)
-1. Installiere [AutoHotkey v2.0](https://www.autohotkey.com/)
-2. Lade `AutoReSizer.ahk` und die Sprachdateien herunter
-3. Starte das Skript per Doppelklick
+### Option 2: AutoHotkey Script (.ahk)
+1. Install [AutoHotkey v2.0](https://www.autohotkey.com/)
+2. Download `AutoReSizer.ahk` and the language files
+3. Start the script by double-clicking
 
-## 💡 Verwendung
+## 💡 Usage
 
-### Erste Schritte
+### Getting Started
 
-1. **AutoReSizer starten**: Das Programm läuft im Hintergrund und zeigt ein Tray-Icon
-2. **Fenster erfassen**: 
-   - Klicke im Tray-Menü auf "Fenster erfassen" oder nutze den konfigurierbaren Hotkey (Standard: Strg+Win+W)
-   - Wähle das gewünschte Fenster aus der Liste
-3. **Regel konfigurieren**:
-   - Gib optional einen Namen für die Regel ein
-   - Passe Position und Größe an oder aktiviere "Fenster maximieren"
-   - Wähle die Erkennungsmethode (Klasse oder Titel)
-4. **Regel speichern**: Klicke auf "Hinzufügen"
+1. **Start AutoReSizer**: The program runs in the background and shows a tray icon
+2. **Capture Window**: 
+   - Click "Capture Window" in the tray menu or use the configurable hotkey (default: Ctrl+Win+W)
+   - Select the desired window from the list
+3. **Configure Rule**:
+   - Optionally enter a name for the rule
+   - Adjust position and size or enable "Maximize Window"
+   - Choose the detection method (Class or Title)
+4. **Save Rule**: Click "Add"
 
-Die Regel wird ab sofort automatisch auf neue Fenster angewendet!
+The rule will now be automatically applied to new windows!
 
-### Regelverwaltung
+### Rule Management
 
-Über "Regeln verwalten" im Tray-Menü kannst du:
-- Regeln bearbeiten (Doppelklick oder Button "Bearbeiten")
-- Regeln temporär deaktivieren (Button "Umschalten")
-- Regeln löschen (Button "Löschen")
-- Alle Regeln pausieren/fortsetzen
+Via "Manage Rules" in the tray menu you can:
+- Edit rules (double-click or "Edit" button)
+- Temporarily disable rules ("Toggle" button)
+- Delete rules ("Delete" button)
+- Pause/resume all rules
 
-### Einstellungen
+### Settings
 
-- **Hotkey anpassen**: Ändere die Tastenkombination für die Fenstererfassung
-- **Autostart**: Aktiviere den automatischen Start mit Windows
-- **Sprache**: Wechsle zwischen Deutsch und Englisch
+- **Customize Hotkey**: Change the keyboard shortcut for window capture
+- **Autostart**: Enable automatic start with Windows
+- **Language**: Switch between German and English
 
-## 📂 Dateistruktur
+## 📂 File Structure
 
 ```
 AutoReSizer/
-├── AutoReSizer.ahk         # Hauptskript
-├── AutoReSizer.ini         # Konfigurationsdatei (automatisch erstellt)
-├── German.lng              # Deutsche Sprachdatei
-├── English.lng             # Englische Sprachdatei
+├── AutoReSizer.ahk         # Main script
+├── AutoReSizer.ini         # Configuration file (automatically created)
+├── German.lng              # German language file
+├── English.lng             # English language file
+├── readme.txt              # Readme file
+├── license.txt             # GPL-3.0 License
 ├── Icons/
-│   ├── active.ico          # Tray-Icon (aktiv)
-│   └── paused.ico          # Tray-Icon (pausiert)
-└── README.md               # Diese Datei
+│   ├── active.ico          # Tray icon (active)
+│   └── paused.ico          # Tray icon (paused)
+└── README.md               # This file
 ```
 
-## 🌍 Sprachen
+## 🌍 Languages
 
-AutoReSizer unterstützt mehrere Sprachen durch .lng-Dateien:
-- Deutsch (German.lng)
-- Englisch (English.lng)
+AutoReSizer supports multiple languages through .lng files:
+- German (German.lng)
+- English (English.lng)
 
-Weitere Sprachen können einfach durch Kopieren und Übersetzen einer bestehenden .lng-Datei hinzugefügt werden.
+Additional languages can be easily added by copying and translating an existing .lng file.
 
-## 🔧 Technische Details
+## 🔧 Technical Details
 
-### Erkennungsmethoden
-- **Nach Klasse**: Identifiziert Fenster anhand ihrer Windows-Klasse (zuverlässiger)
-- **Nach Titel**: Identifiziert Fenster anhand des Fenstertitels (flexibler)
+### Detection Methods
+- **By Class**: Identifies windows by their Windows class (more reliable)
+- **By Title**: Identifies windows by their window title (more flexible)
 
-### Maximieren vs. Position/Größe
-- Wenn "Fenster maximieren" aktiviert ist, werden die Positions- und Größenwerte ignoriert
-- Andernfalls wird das Fenster exakt auf die angegebenen Koordinaten und Dimensionen gesetzt
+### Maximize vs. Position/Size
+- If "Maximize Window" is enabled, position and size values are ignored
+- Otherwise, the window is set exactly to the specified coordinates and dimensions
 
-### Persistente Speicherung
-Alle Einstellungen werden in `AutoReSizer.ini` gespeichert:
-- Regeln mit allen Parametern
-- Hotkey-Konfiguration
-- Autostart-Status
-- Spracheinstellung
+### Persistent Storage
+All settings are saved in `AutoReSizer.ini`:
+- Rules with all parameters
+- Hotkey configuration
+- Autostart status
+- Language setting
 
-## 🐛 Bekannte Einschränkungen
+## 🐛 Known Limitations
 
-- Fenster werden erst beim erstmaligen Erscheinen positioniert, nicht bei jedem Fokus-Wechsel
-- Manche Fenster (z.B. mit Administratorrechten) können je nach UAC-Einstellungen nicht erfasst werden
-- Die Regel-Anwendung erfolgt alle 500ms, daher kann es kurzzeitig zu sichtbarem "Springen" kommen
+- Windows are positioned only when they first appear, not on every focus change
+- Some windows (e.g., with administrator rights) may not be captured depending on UAC settings
+- Rule application occurs every 500ms, so brief visible "jumping" may occur
 
-## 🤝 Beitragen
+## 🤝 Contributing
 
-Contributions sind willkommen! Wenn du einen Fehler findest oder ein Feature vorschlagen möchtest:
+Contributions are welcome! If you find a bug or want to suggest a feature:
 
-1. Erstelle ein Issue
-2. Forke das Repository
-3. Erstelle einen Feature Branch (`git checkout -b feature/AmazingFeature`)
-4. Committe deine Änderungen (`git commit -m 'Add some AmazingFeature'`)
-5. Pushe zum Branch (`git push origin feature/AmazingFeature`)
-6. Öffne einen Pull Request
+1. Create an issue
+2. Fork the repository
+3. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+4. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+5. Push to the branch (`git push origin feature/AmazingFeature`)
+6. Open a pull request
 
-## 📝 Lizenz
+## 📝 License
 
-Dieses Projekt ist unter der MIT-Lizenz lizenziert - siehe die [LICENSE](LICENSE) Datei für Details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
-## 👤 Autor
+## 👤 Author
 
 **HJS**
 
 - GitHub: [@HJS-cpu](https://github.com/HJS-cpu)
 - E-Mail: autoresizer@gmx.net
 
-## 🙏 Danksagungen
+## 🙏 Acknowledgments
 
-- Inspiriert vom originalen AutoSizer Konzept
-- Gebaut mit [AutoHotkey v2.0](https://www.autohotkey.com/)
+- Inspired by the original AutoSizer concept
+- Built with [AutoHotkey v2.0](https://www.autohotkey.com/)
 
 ## 📜 Changelog
 
-### Version 1.5.3 (Aktuell)
-- Kompaktes Design für alle Dialoge
-- Optimierter Über-Dialog
-- Verbesserte Benutzeroberfläche
-- Bug-Fixes in der Regelverwaltung
+### Version 1.5.3 (Current)
+- Compact design for all dialogs
+- Optimized About dialog
+- Improved user interface
+- Bug fixes in rule management
 
 ### Version 1.5.0
-- Mehrsprachigkeit (Deutsch/Englisch)
-- Sprachauswahl beim ersten Start
-- Vollständige Lokalisierung aller UI-Elemente
+- Multi-language support (German/English)
+- Language selection on first start
+- Complete localization of all UI elements
 
 ### Version 1.4.0
-- Autostart-Funktion hinzugefügt
-- Einstellungen-Dialog erweitert
-- Registry-Integration für Windows-Start
+- Autostart function added
+- Settings dialog extended
+- Registry integration for Windows startup
 
 ### Version 1.3.0
-- Regel-Verwaltung komplett überarbeitet
-- Bearbeiten/Löschen/Umschalten von Regeln
-- Globale Pause-Funktion
-- Persistente Speicherung
+- Rule management completely redesigned
+- Edit/delete/toggle rules
+- Global pause function
+- Persistent storage
 
 ### Version 1.2.0
-- Fensterauswahl per Liste
-- Konfigurierbare Hotkeys
-- Maximieren-Option
+- Window selection via list
+- Configurable hotkeys
+- Maximize option
 
 ### Version 1.0.0
-- Erste öffentliche Version
-- Grundlegende Window Management Funktionen
-- Regelbasierte Fensterpositionierung
+- First public release
+- Basic window management functions
+- Rule-based window positioning
 
 ---
 
-**Hinweis**: Dieses Tool wurde komplett neu entwickelt und ist nicht mit dem ursprünglichen AutoSizer von Jonathan Clark verwandt. Es handelt sich um eine eigenständige Neuimplementierung mit AutoHotkey v2.
+**Note**: This tool was completely rebuilt from scratch and is not related to the original AutoSizer by Jonathan Clark. It is an independent reimplementation using AutoHotkey v2.
