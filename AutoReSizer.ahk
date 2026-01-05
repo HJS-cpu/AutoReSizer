@@ -8,7 +8,7 @@ Persistent
 ; ============================================================
 
 global AppName := "AutoReSizer"
-global AppVersion := "1.5.3"
+global AppVersion := "1.5.4"
 global AppAuthor := "HJS"
 global AppGitHub := "https://github.com/HJS-cpu/AutoReSizer"
 global AppEmail := "autoresizer@gmx.com"
