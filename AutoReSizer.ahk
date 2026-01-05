@@ -4,7 +4,7 @@ Persistent
 
 ; ============================================================
 ; AutoReSizer - Window Size/Position Manager
-; Version: 1.5.3 - Kompaktes Design
+; Version: 1.5.4
 ; ============================================================
 
 global AppName := "AutoReSizer"
@@ -42,6 +42,9 @@ global WindowPickerGui := ""
 global SettingsGui := ""
 global AboutGui := ""
 global LanguageGui := ""
+
+; Tracking woher Dialog geöffnet wurde
+global CameFromRulesManager := false
 
 ; Hotkey-Einstellungen
 global HotkeyEnabled := false
@@ -752,8 +755,8 @@ ShowRulesManager(*) {
     
     RulesListView.ModifyCol(1, "40 Center")
     RulesListView.ModifyCol(2, 90)
-    RulesListView.ModifyCol(3, 110)
-    RulesListView.ModifyCol(4, 40)
+    RulesListView.ModifyCol(3, 100)
+    RulesListView.ModifyCol(4, 45)
     RulesListView.ModifyCol(5, 35)
     RulesListView.ModifyCol(6, 40)
     RulesListView.ModifyCol(7, 40)
@@ -814,7 +817,8 @@ OnRuleSelect(LV, Item, Selected) {
 
 ; ============================================================
 NewRuleFromManager(*) {
-    global RulesManagerGui
+    global RulesManagerGui, CameFromRulesManager
+    CameFromRulesManager := true
     RulesManagerGui.Destroy()
     RulesManagerGui := ""
     ShowWindowPicker()
@@ -866,7 +870,7 @@ ToggleRuleFromList(ctrl, *) {
 
 ; ============================================================
 EditRuleFromList(ctrl, *) {
-    global WindowRules, EditingRuleIndex, RulesManagerGui, RulesListView
+    global WindowRules, EditingRuleIndex, RulesManagerGui, RulesListView, CameFromRulesManager
     
     row := RulesListView.GetNext(0, "Focused")
     if (row = 0 || row > WindowRules.Length)
@@ -875,6 +879,7 @@ EditRuleFromList(ctrl, *) {
     EditingRuleIndex := row
     rule := WindowRules[row]
     
+    CameFromRulesManager := true
     RulesManagerGui.Destroy()
     RulesManagerGui := ""
     EditRule(rule)
@@ -1025,12 +1030,17 @@ DoTestEditedRule(*) {
 DoSaveEditedRule(*) {
     global WindowRules, ProcessedWindows, EditingRuleIndex, AppName
     global MyGui, MyEdX, MyEdY, MyEdW, MyEdH, MyMaximizeChk, MyRuleName, MyEnabledChk
+    global CameFromRulesManager
     
     if (EditingRuleIndex = 0 || EditingRuleIndex > WindowRules.Length) {
         MsgBox(L("Messages", "995"), L("Messages", "995"), "Icon! 4096")
         MyGui.Destroy()
         MyGui := ""
-        ShowRulesManager()
+        if (CameFromRulesManager) {
+            CameFromRulesManager := false
+            ShowRulesManager()
+        }
+        SetTimer(CheckWindows, 500)
         return
     }
     
@@ -1066,16 +1076,24 @@ DoSaveEditedRule(*) {
     MyGui := ""
     TrayTip(AppName, L("Messages", "925") " " displayName, 1)
     
-    ShowRulesManager()
+    if (CameFromRulesManager) {
+        CameFromRulesManager := false
+        ShowRulesManager()
+    }
+    SetTimer(CheckWindows, 500)
 }
 
 ; ============================================================
 DoCancelToManager(*) {
-    global MyGui, EditingRuleIndex
+    global MyGui, EditingRuleIndex, CameFromRulesManager
     EditingRuleIndex := 0
     MyGui.Destroy()
     MyGui := ""
-    ShowRulesManager()
+    if (CameFromRulesManager) {
+        CameFromRulesManager := false
+        ShowRulesManager()
+    }
+    SetTimer(CheckWindows, 500)
 }
 
 ; ============================================================
@@ -1137,10 +1155,14 @@ ShowWindowPicker(*) {
 
 ; ============================================================
 ClosePickerGui() {
-    global WindowPickerGui
+    global WindowPickerGui, CameFromRulesManager
     WindowPickerGui.Destroy()
     WindowPickerGui := ""
-    ShowRulesManager()
+    if (CameFromRulesManager) {
+        CameFromRulesManager := false
+        ShowRulesManager()
+    }
+    SetTimer(CheckWindows, 500)
 }
 
 ; ============================================================
@@ -1196,11 +1218,15 @@ CaptureWindow(*) {
 CaptureSpecificWindow(hwnd) {
     global CaptureHwnd, CaptureClass, CaptureTitle, AppName
     global MyGui, MyEdX, MyEdY, MyEdW, MyEdH, MyMatchDDL, MyMaximizeChk, MyRuleName
-    global ToolTipControls
+    global ToolTipControls, CameFromRulesManager
     
     if (!WinExist("ahk_id " hwnd)) {
         MsgBox(L("Messages", "955"), L("Messages", "995"), "Icon! 4096")
-        ShowRulesManager()
+        if (CameFromRulesManager) {
+            CameFromRulesManager := false
+            ShowRulesManager()
+        }
+        SetTimer(CheckWindows, 500)
         return
     }
     
@@ -1280,6 +1306,7 @@ DoAddRule(*) {
     global CaptureHwnd, CaptureClass, CaptureTitle, AppName
     global WindowRules, ProcessedWindows
     global MyGui, MyEdX, MyEdY, MyEdW, MyEdH, MyMatchDDL, MyMaximizeChk, MyRuleName
+    global CameFromRulesManager
     
     ruleName := MyRuleName.Value
     targetX := Integer(MyEdX.Value)
@@ -1334,7 +1361,11 @@ DoAddRule(*) {
     MyGui := ""
     TrayTip(AppName, L("Messages", msgKey) " " displayName, 1)
     
-    ShowRulesManager()
+    if (CameFromRulesManager) {
+        CameFromRulesManager := false
+        ShowRulesManager()
+    }
+    SetTimer(CheckWindows, 500)
 }
 
 ; ============================================================
