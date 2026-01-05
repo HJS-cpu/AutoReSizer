@@ -18,9 +18,12 @@ AutoReSizer
 - Compact Design: Sleek, modern user interface
 
 
-Current Version: v1.5.3
+Current Version: v1.5.4
 
 Version history:
+
+Version 1.5.4
++ Minor Fix
 
 Version 1.5.3
 + Compact design for all dialogs
@@ -55,9 +58,9 @@ Version 1.0.0
 + Rule+based window positioning
 
 
-Copyright © 2026 HJS (Hans-Joachim Schlingensief)
+Copyright Â© 2026 HJS (Hans-Joachim Schlingensief)
 
 Contact Info
-++++++++++++
+============
 GitHub: https://github.com/HJS+cpu/AutoReSizer
-E+Mail: autoresizer@gmx.com
+E-Mail: autoresizer@gmx.com
