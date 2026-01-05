@@ -1467,3 +1467,4 @@ ApplyRule(hwnd, rule) {
 ShowRules(*) {
     ShowRulesManager()
 }
+
