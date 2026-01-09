@@ -150,6 +150,9 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 - Renamed "Pause All" to "Pause" for better button fit
 - Updated language files
 
+### Version 1.5.5
+- Added hotkey for applying all rules immediately
+
 ### Version 1.5.4
 - Fixed rules list refresh when Rules Manager window is already open
 - Rules added via hotkey capture now immediately appear in open Rules Manager
