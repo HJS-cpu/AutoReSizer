@@ -1,6 +1,6 @@
-; ============================================================
+﻿; ============================================================
 ; AutoReSizer - Language File English
-; Version: 1.5.3
+; Version: 1.5.6
 ; ============================================================
 
 [Info]
@@ -49,6 +49,8 @@ Author=test
 345=Cancel
 350=Language
 355=Change Language...
+360=Hotkey to Apply Rules
+365=Enable Hotkey
 
 ; ============================================================
 ; Rules Manager (400-499)
@@ -67,7 +69,7 @@ Author=test
 450=Toggle
 455=Delete
 460=Resume
-465=Pause All
+465=Pause
 470=Close
 475=(no name)
 480=Yes
@@ -137,6 +139,7 @@ Author=test
 900=All rules paused
 905=Rules active again
 910=Hotkey enabled:
+911=Apply rules hotkey enabled:
 915=Hotkey disabled
 920=Rule added:
 925=Rule updated:
@@ -144,6 +147,8 @@ Author=test
 935=Rule enabled:
 940=Rule disabled:
 945=Adjusted:
+946=Rules applied:
+947=No matching windows found
 950=No matching window found for testing!
 955=Window no longer exists!
 960=No windows found!
@@ -152,5 +157,6 @@ Author=test
 975=Confirmation
 980=Invalid Input
 985=Please enter only a single letter (A-Z) or number (0-9).
+986=Both hotkeys cannot be the same!
 990=No language files found!
 995=Error

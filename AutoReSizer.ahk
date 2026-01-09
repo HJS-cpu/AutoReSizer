@@ -4,11 +4,11 @@ Persistent
 
 ; ============================================================
 ; AutoReSizer - Window Size/Position Manager
-; Version: 1.5.4
+; Version: 1.5.6
 ; ============================================================
 
 global AppName := "AutoReSizer"
-global AppVersion := "1.5.4"
+global AppVersion := "1.5.6"
 global AppAuthor := "HJS"
 global AppGitHub := "https://github.com/HJS-cpu/AutoReSizer"
 global AppEmail := "autoresizer@gmx.com"
@@ -50,6 +50,11 @@ global CameFromRulesManager := false
 global HotkeyEnabled := false
 global HotkeyKey := ""
 global CurrentHotkey := ""
+
+; Hotkey für sofortiges Anwenden der Regeln
+global ApplyRulesHotkeyEnabled := false
+global ApplyRulesHotkeyKey := ""
+global CurrentApplyRulesHotkey := ""
 
 ; Autostart
 global AutostartEnabled := false
@@ -236,10 +241,12 @@ ShowLanguageSelect(isFirstRun := false) {
     langListBox.Choose(selectedIndex)
     
     if (!isFirstRun) {
-        LanguageGui.Add("Button", "x30 w70", okText).OnEvent("Click", (*) => ApplyLanguageSelection(languages, isFirstRun))
-        LanguageGui.Add("Button", "x+5 w70", cancelText).OnEvent("Click", (*) => CloseLanguageSelect())
+        ; Buttons zentriert (2 Buttons à 70px mit 5px Abstand = 145px, Start bei x38)
+        LanguageGui.Add("Button", "x38 w70", okText).OnEvent("Click", (*) => ApplyLanguageSelection(languages, isFirstRun))
+        LanguageGui.Add("Button", "x113 yp w70", cancelText).OnEvent("Click", (*) => CloseLanguageSelect())
         LanguageGui.OnEvent("Close", (*) => CloseLanguageSelect())
     } else {
+        ; Button zentriert (1 Button à 70px, Start bei x75)
         LanguageGui.Add("Button", "x75 w70", okText).OnEvent("Click", (*) => ApplyLanguageSelection(languages, isFirstRun))
         LanguageGui.OnEvent("Close", (*) => ExitApp())
     }
@@ -337,7 +344,8 @@ ShowAbout(*) {
     AboutGui.Add("Text", "x10 h15", "")
     
     AboutGui.SetFont("s9 norm")
-    AboutGui.Add("Button", "x130 w70", L("About", "225")).OnEvent("Click", (*) => CloseAbout())
+    ; Button zentriert (1 Button à 70px bei Fensterbreite ~320px, Start bei x125)
+    AboutGui.Add("Button", "x125 w70", L("About", "225")).OnEvent("Click", (*) => CloseAbout())
     AboutGui.OnEvent("Close", (*) => CloseAbout())
     
     AboutGui.Show()
@@ -352,22 +360,29 @@ CloseAbout() {
 ; ============================================================
 LoadSettings() {
     global IniFile, HotkeyEnabled, HotkeyKey, AutostartEnabled
-    
+    global ApplyRulesHotkeyEnabled, ApplyRulesHotkeyKey
+
     if (!FileExist(IniFile))
         return
-    
+
     HotkeyEnabled := IniRead(IniFile, "Settings", "HotkeyEnabled", "0") = "1"
     HotkeyKey := IniRead(IniFile, "Settings", "HotkeyKey", "")
-    
+
+    ApplyRulesHotkeyEnabled := IniRead(IniFile, "Settings", "ApplyRulesHotkeyEnabled", "0") = "1"
+    ApplyRulesHotkeyKey := IniRead(IniFile, "Settings", "ApplyRulesHotkeyKey", "")
+
     AutostartEnabled := CheckAutostart()
 }
 
 ; ============================================================
 SaveSettings() {
     global IniFile, HotkeyEnabled, HotkeyKey
-    
+    global ApplyRulesHotkeyEnabled, ApplyRulesHotkeyKey
+
     IniWrite(HotkeyEnabled ? "1" : "0", IniFile, "Settings", "HotkeyEnabled")
     IniWrite(HotkeyKey, IniFile, "Settings", "HotkeyKey")
+    IniWrite(ApplyRulesHotkeyEnabled ? "1" : "0", IniFile, "Settings", "ApplyRulesHotkeyEnabled")
+    IniWrite(ApplyRulesHotkeyKey, IniFile, "Settings", "ApplyRulesHotkeyKey")
 }
 
 ; ============================================================
@@ -410,25 +425,106 @@ SetAutostart(enable) {
 ; ============================================================
 RegisterHotkey() {
     global HotkeyEnabled, HotkeyKey, CurrentHotkey
-    
+    global ApplyRulesHotkeyEnabled, ApplyRulesHotkeyKey, CurrentApplyRulesHotkey
+
+    ; Alten Capture-Hotkey deaktivieren falls vorhanden
     if (CurrentHotkey != "") {
         try {
             Hotkey(CurrentHotkey, "Off")
         }
         CurrentHotkey := ""
     }
-    
+
+    ; Alten Apply-Rules-Hotkey deaktivieren falls vorhanden
+    if (CurrentApplyRulesHotkey != "") {
+        try {
+            Hotkey(CurrentApplyRulesHotkey, "Off")
+        }
+        CurrentApplyRulesHotkey := ""
+    }
+
+    ; Capture-Hotkey registrieren
     if (HotkeyEnabled && HotkeyKey != "") {
         try {
             newHotkey := "^#" HotkeyKey
-            Hotkey(newHotkey, (*) => CaptureWindow())
+            Hotkey(newHotkey, HotkeyCallback, "On")
             CurrentHotkey := newHotkey
         } catch as err {
             MsgBox("Hotkey error: " err.Message, L("Messages", "995"), "Icon! 4096")
         }
     }
-    
+
+    ; Apply-Rules-Hotkey registrieren
+    if (ApplyRulesHotkeyEnabled && ApplyRulesHotkeyKey != "") {
+        try {
+            newApplyHotkey := "^#" ApplyRulesHotkeyKey
+            Hotkey(newApplyHotkey, ApplyRulesHotkeyCallback, "On")
+            CurrentApplyRulesHotkey := newApplyHotkey
+        } catch as err {
+            MsgBox("Hotkey error: " err.Message, L("Messages", "995"), "Icon! 4096")
+        }
+    }
+
     UpdateTrayIcon()
+}
+
+; ============================================================
+HotkeyCallback(*) {
+    CaptureWindow()
+}
+
+; ============================================================
+ApplyRulesHotkeyCallback(*) {
+    ApplyAllRulesNow()
+}
+
+; ============================================================
+ApplyAllRulesNow() {
+    global WindowRules, ProcessedWindows, GlobalPaused, AppName
+
+    if (GlobalPaused)
+        return
+
+    appliedCount := 0
+
+    for rule in WindowRules {
+        if (!rule.enabled)
+            continue
+
+        try {
+            for hwnd in WinGetList() {
+                try {
+                    matched := false
+
+                    if (rule.matchType = "title") {
+                        title := WinGetTitle(hwnd)
+                        if (title && InStr(title, rule.match))
+                            matched := true
+                    } else if (rule.matchType = "class") {
+                        wclass := WinGetClass(hwnd)
+                        if (wclass = rule.match)
+                            matched := true
+                    }
+
+                    if (matched) {
+                        ; Anwenden auch wenn bereits verarbeitet
+                        if (rule.maximize) {
+                            WinMaximize(hwnd)
+                        } else {
+                            WinMove(rule.x, rule.y, rule.w, rule.h, hwnd)
+                        }
+                        ProcessedWindows[hwnd] := true
+                        appliedCount++
+                    }
+                }
+            }
+        }
+    }
+
+    if (appliedCount > 0)
+        TrayTip(AppName, L("Messages", "946") " " appliedCount, 1)
+    else
+        TrayTip(AppName, L("Messages", "947"), 1)
 }
 
 ; ============================================================
@@ -525,47 +621,67 @@ UpdateTrayIcon() {
 ; ============================================================
 ShowSettings(*) {
     global SettingsGui, HotkeyEnabled, HotkeyKey, AutostartEnabled, AppName
+    global ApplyRulesHotkeyEnabled, ApplyRulesHotkeyKey
     global SettingsHotkeyEdit, SettingsHotkeyChk, SettingsAutostartChk
-    
+    global SettingsApplyRulesHotkeyEdit, SettingsApplyRulesHotkeyChk
+
     if (IsGuiVisible(SettingsGui)) {
         WinActivate("ahk_id " SettingsGui.Hwnd)
         return
     }
-    
+
     AutostartEnabled := CheckAutostart()
-    
+
     SettingsGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox -Resize", L("Settings", "300"))
     SettingsGui.SetFont("s9")
-    
-    ; Hotkey Bereich
-    SettingsGui.Add("GroupBox", "w280 h90", L("Settings", "305"))
-    
-    SettingsHotkeyChk := SettingsGui.Add("Checkbox", "xp+10 yp+20", L("Settings", "310"))
+
+    yPos := 10
+    frameHeight := 70
+    frameSpacing := 8
+
+    ; Frame 1: Hotkey für Fenster erfassen
+    SettingsGui.Add("GroupBox", "x10 y" yPos " w280 h" frameHeight, L("Settings", "305"))
+    SettingsHotkeyChk := SettingsGui.Add("Checkbox", "x20 y" (yPos + 20), L("Settings", "310"))
     SettingsHotkeyChk.Value := HotkeyEnabled
     SettingsHotkeyChk.OnEvent("Click", OnHotkeyToggle)
-    
-    SettingsGui.Add("Text", "x20 yp+25", L("Settings", "315"))
-    SettingsHotkeyEdit := SettingsGui.Add("Edit", "x90 yp-3 w30 Uppercase Limit1 Center", HotkeyKey)
+    SettingsGui.Add("Text", "x20 y" (yPos + 45), L("Settings", "315"))
+    SettingsHotkeyEdit := SettingsGui.Add("Edit", "x90 y" (yPos + 42) " w30 Uppercase Limit1 Center", HotkeyKey)
     SettingsHotkeyEdit.Enabled := HotkeyEnabled
-    
-    SettingsGui.Add("Text", "x130 yp+3 cGray", L("Settings", "320"))
-    
-    ; Autostart Bereich
-    SettingsGui.Add("GroupBox", "x10 yp+30 w280 h45", L("Settings", "330"))
-    
-    SettingsAutostartChk := SettingsGui.Add("Checkbox", "xp+10 yp+18", L("Settings", "335"))
+    SettingsGui.Add("Text", "x130 y" (yPos + 45) " cGray", L("Settings", "320"))
+
+    yPos += frameHeight + frameSpacing
+
+    ; Frame 2: Hotkey für Regeln anwenden
+    SettingsGui.Add("GroupBox", "x10 y" yPos " w280 h" frameHeight, L("Settings", "360"))
+    SettingsApplyRulesHotkeyChk := SettingsGui.Add("Checkbox", "x20 y" (yPos + 20), L("Settings", "365"))
+    SettingsApplyRulesHotkeyChk.Value := ApplyRulesHotkeyEnabled
+    SettingsApplyRulesHotkeyChk.OnEvent("Click", OnApplyRulesHotkeyToggle)
+    SettingsGui.Add("Text", "x20 y" (yPos + 45), L("Settings", "315"))
+    SettingsApplyRulesHotkeyEdit := SettingsGui.Add("Edit", "x90 y" (yPos + 42) " w30 Uppercase Limit1 Center", ApplyRulesHotkeyKey)
+    SettingsApplyRulesHotkeyEdit.Enabled := ApplyRulesHotkeyEnabled
+    SettingsGui.Add("Text", "x130 y" (yPos + 45) " cGray", L("Settings", "320"))
+
+    yPos += frameHeight + frameSpacing
+
+    ; Frame 3: Windows-Start
+    smallFrameHeight := 45
+    SettingsGui.Add("GroupBox", "x10 y" yPos " w280 h" smallFrameHeight, L("Settings", "330"))
+    SettingsAutostartChk := SettingsGui.Add("Checkbox", "x20 y" (yPos + 18), L("Settings", "335"))
     SettingsAutostartChk.Value := AutostartEnabled
-    
-    ; Sprache Bereich
-    SettingsGui.Add("GroupBox", "x10 yp+35 w280 h45", L("Settings", "350"))
-    
-    SettingsGui.Add("Button", "xp+10 yp+15 w120", L("Settings", "355")).OnEvent("Click", (*) => OpenLanguageFromSettings())
-    
-    ; Buttons
-	SettingsGui.Add("Button", "x70 yp+40 w80", L("Settings", "340")).OnEvent("Click", SaveSettingsAndClose)
-    SettingsGui.Add("Button", "x+5 w80", L("Settings", "345")).OnEvent("Click", (*) => CloseSettings())
+
+    yPos += smallFrameHeight + frameSpacing
+
+    ; Frame 4: Sprache
+    SettingsGui.Add("GroupBox", "x10 y" yPos " w280 h" smallFrameHeight, L("Settings", "350"))
+    SettingsGui.Add("Button", "x20 y" (yPos + 15) " w120", L("Settings", "355")).OnEvent("Click", (*) => OpenLanguageFromSettings())
+
+    yPos += smallFrameHeight + frameSpacing + 5
+
+    ; Buttons zentriert (2 Buttons à 80px mit 5px Abstand = 165px, Start bei x68)
+    SettingsGui.Add("Button", "x68 y" yPos " w80", L("Settings", "340")).OnEvent("Click", SaveSettingsAndClose)
+    SettingsGui.Add("Button", "x153 y" yPos " w80", L("Settings", "345")).OnEvent("Click", (*) => CloseSettings())
     SettingsGui.OnEvent("Close", (*) => CloseSettings())
-    
+
     SettingsGui.Show()
 }
 
@@ -580,38 +696,80 @@ OpenLanguageFromSettings() {
 ; ============================================================
 OnHotkeyToggle(*) {
     global SettingsHotkeyEdit, SettingsHotkeyChk
-    
+
     SettingsHotkeyEdit.Enabled := SettingsHotkeyChk.Value
+}
+
+; ============================================================
+OnApplyRulesHotkeyToggle(*) {
+    global SettingsApplyRulesHotkeyEdit, SettingsApplyRulesHotkeyChk
+
+    SettingsApplyRulesHotkeyEdit.Enabled := SettingsApplyRulesHotkeyChk.Value
 }
 
 ; ============================================================
 SaveSettingsAndClose(*) {
     global SettingsGui, SettingsHotkeyEdit, SettingsHotkeyChk, SettingsAutostartChk
+    global SettingsApplyRulesHotkeyEdit, SettingsApplyRulesHotkeyChk
     global HotkeyEnabled, HotkeyKey, AppName
-    
+    global ApplyRulesHotkeyEnabled, ApplyRulesHotkeyKey
+
     newKey := SettingsHotkeyEdit.Value
     newEnabled := SettingsHotkeyChk.Value
+    newApplyRulesKey := SettingsApplyRulesHotkeyEdit.Value
+    newApplyRulesEnabled := SettingsApplyRulesHotkeyChk.Value
     newAutostart := SettingsAutostartChk.Value
-    
+
+    ; Capture-Hotkey validieren
     if (newEnabled && newKey != "") {
         if (!RegExMatch(newKey, "^[A-Z0-9]$")) {
             MsgBox(L("Messages", "985"), L("Messages", "980"), "Icon! 4096")
             return
         }
     }
-    
+
+    ; Apply-Rules-Hotkey validieren
+    if (newApplyRulesEnabled && newApplyRulesKey != "") {
+        if (!RegExMatch(newApplyRulesKey, "^[A-Z0-9]$")) {
+            MsgBox(L("Messages", "985"), L("Messages", "980"), "Icon! 4096")
+            return
+        }
+    }
+
+    ; Prüfen ob beide Hotkeys gleich sind
+    if (newEnabled && newApplyRulesEnabled && newKey != "" && newApplyRulesKey != "" && newKey = newApplyRulesKey) {
+        MsgBox(L("Messages", "986"), L("Messages", "980"), "Icon! 4096")
+        return
+    }
+
     HotkeyEnabled := newEnabled
     HotkeyKey := newKey
-    
+    ApplyRulesHotkeyEnabled := newApplyRulesEnabled
+    ApplyRulesHotkeyKey := newApplyRulesKey
+
     SaveSettings()
     RegisterHotkey()
     SetAutostart(newAutostart)
-    
+
     SettingsGui.Destroy()
     SettingsGui := ""
-    
+
+    ; Tray-Tip für aktivierte Hotkeys
+    tipMessages := []
     if (HotkeyEnabled && HotkeyKey != "")
-        TrayTip(AppName, L("Messages", "910") " Ctrl+Win+" HotkeyKey, 1)
+        tipMessages.Push(L("Messages", "910") " Ctrl+Win+" HotkeyKey)
+    if (ApplyRulesHotkeyEnabled && ApplyRulesHotkeyKey != "")
+        tipMessages.Push(L("Messages", "911") " Ctrl+Win+" ApplyRulesHotkeyKey)
+
+    if (tipMessages.Length > 0) {
+        tipText := ""
+        for msg in tipMessages {
+            if (tipText != "")
+                tipText .= "`n"
+            tipText .= msg
+        }
+        TrayTip(AppName, tipText, 1)
+    }
 }
 
 ; ============================================================
@@ -763,17 +921,17 @@ ShowRulesManager(*) {
     RulesListView.ModifyCol(8, 40)
     RulesListView.ModifyCol(9, 40)
     
-    ; Buttons kompakt
-    RulesManagerGui.Add("Button", "x10 w70", L("RulesManager", "440")).OnEvent("Click", NewRuleFromManager)
-    BtnEdit := RulesManagerGui.Add("Button", "x85 yp w70 Disabled", L("RulesManager", "445"))
+    ; Buttons zentriert (6 Buttons à 70px mit 5px Abstand = 445px, Start bei x38)
+    RulesManagerGui.Add("Button", "x38 w70", L("RulesManager", "440")).OnEvent("Click", NewRuleFromManager)
+    BtnEdit := RulesManagerGui.Add("Button", "x113 yp w70 Disabled", L("RulesManager", "445"))
     BtnEdit.OnEvent("Click", EditRuleFromList)
-    BtnToggle := RulesManagerGui.Add("Button", "x160 yp w70 Disabled", L("RulesManager", "450"))
+    BtnToggle := RulesManagerGui.Add("Button", "x188 yp w70 Disabled", L("RulesManager", "450"))
     BtnToggle.OnEvent("Click", ToggleRuleFromList)
-    BtnDelete := RulesManagerGui.Add("Button", "x235 yp w70 Disabled", L("RulesManager", "455"))
+    BtnDelete := RulesManagerGui.Add("Button", "x263 yp w70 Disabled", L("RulesManager", "455"))
     BtnDelete.OnEvent("Click", DeleteRuleFromList)
     pauseBtnText := GlobalPaused ? L("RulesManager", "460") : L("RulesManager", "465")
-    RulesManagerGui.Add("Button", "x310 yp w100", pauseBtnText).OnEvent("Click", (*) => ToggleGlobalFromManager())
-    RulesManagerGui.Add("Button", "x415 yp w70", L("RulesManager", "470")).OnEvent("Click", (*) => CloseRulesManager())
+    RulesManagerGui.Add("Button", "x338 yp w70", pauseBtnText).OnEvent("Click", (*) => ToggleGlobalFromManager())
+    RulesManagerGui.Add("Button", "x413 yp w70", L("RulesManager", "470")).OnEvent("Click", (*) => CloseRulesManager())
     RulesManagerGui.OnEvent("Close", (*) => CloseRulesManager())
     
     RefreshRulesList()
@@ -967,9 +1125,10 @@ EditRule(rule) {
         MyEdH.Enabled := false
     }
     
-    MyGui.Add("Button", "x10 yp+35 w100", L("EditRule", "645")).OnEvent("Click", DoSaveEditedRule)
-    MyGui.Add("Button", "x115 yp w100", L("EditRule", "650")).OnEvent("Click", DoTestEditedRule)
-    MyGui.Add("Button", "x220 yp w100", L("EditRule", "655")).OnEvent("Click", DoCancelToManager)
+    ; Buttons zentriert (3 Buttons à 100px mit 5px Abstand = 310px, Start bei x15)
+    MyGui.Add("Button", "x15 yp+35 w100", L("EditRule", "645")).OnEvent("Click", DoSaveEditedRule)
+    MyGui.Add("Button", "x120 yp w100", L("EditRule", "650")).OnEvent("Click", DoTestEditedRule)
+    MyGui.Add("Button", "x225 yp w100", L("EditRule", "655")).OnEvent("Click", DoCancelToManager)
     MyGui.OnEvent("Close", DoCancelToManager)
     
     MyGui.Show()
@@ -1145,8 +1304,9 @@ ShowWindowPicker(*) {
     LV.ModifyCol(1, 230)
     LV.ModifyCol(2, 150)
     
-    WindowPickerGui.Add("Button", "x10 w80", L("WindowPicker", "720")).OnEvent("Click", SelectFromList)
-    WindowPickerGui.Add("Button", "x95 yp w80", L("WindowPicker", "725")).OnEvent("Click", (*) => ClosePickerGui())
+    ; Buttons zentriert (2 Buttons à 80px mit 10px Abstand = 170px, Start bei x125)
+    WindowPickerGui.Add("Button", "x125 w80", L("WindowPicker", "720")).OnEvent("Click", SelectFromList)
+    WindowPickerGui.Add("Button", "x215 yp w80", L("WindowPicker", "725")).OnEvent("Click", (*) => ClosePickerGui())
     WindowPickerGui.OnEvent("Close", (*) => ClosePickerGui())
     
     WindowPickerGui.windowList := windowList
@@ -1281,9 +1441,10 @@ CaptureSpecificWindow(hwnd) {
     MyGui.Add("Text", "x20 yp+28", L("CaptureWindow", "545"))
     MyMatchDDL := MyGui.Add("DropDownList", "x100 yp-3 w120 Choose1", [L("CaptureWindow", "550"), L("CaptureWindow", "555")])
     
-    MyGui.Add("Button", "x10 yp+35 w100", L("CaptureWindow", "560")).OnEvent("Click", DoAddRule)
-    MyGui.Add("Button", "x115 yp w100", L("CaptureWindow", "565")).OnEvent("Click", DoTestRule)
-    MyGui.Add("Button", "x220 yp w100", L("CaptureWindow", "570")).OnEvent("Click", DoCancelToManager)
+    ; Buttons zentriert (3 Buttons à 100px mit 5px Abstand = 310px, Start bei x15)
+    MyGui.Add("Button", "x15 yp+35 w100", L("CaptureWindow", "560")).OnEvent("Click", DoAddRule)
+    MyGui.Add("Button", "x120 yp w100", L("CaptureWindow", "565")).OnEvent("Click", DoTestRule)
+    MyGui.Add("Button", "x225 yp w100", L("CaptureWindow", "570")).OnEvent("Click", DoCancelToManager)
     MyGui.OnEvent("Close", DoCancelToManager)
     
     MyGui.Show()
@@ -1467,6 +1628,3 @@ ApplyRule(hwnd, rule) {
 ShowRules(*) {
     ShowRulesManager()
 }
-
-
-

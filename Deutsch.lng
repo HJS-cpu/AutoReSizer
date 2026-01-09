@@ -1,6 +1,6 @@
-; ============================================================
+﻿; ============================================================
 ; AutoReSizer - Sprachdatei Deutsch
-; Version: 1.5.3
+; Version: 1.5.6
 ; ============================================================
 
 [Info]
@@ -49,6 +49,8 @@ Author=HJS
 345=Abbrechen
 350=Sprache
 355=Sprache ändern...
+360=Hotkey für Regeln anwenden
+365=Hotkey aktivieren
 
 ; ============================================================
 ; Regeln verwalten (400-499)
@@ -67,7 +69,7 @@ Author=HJS
 450=Umschalten
 455=Löschen
 460=Fortsetzen
-465=Alle pausieren
+465=Pausieren
 470=Schließen
 475=(kein Name)
 480=Ja
@@ -137,6 +139,7 @@ Author=HJS
 900=Alle Regeln pausiert
 905=Regeln wieder aktiv
 910=Hotkey aktiviert:
+911=Regeln-Hotkey aktiviert:
 915=Hotkey deaktiviert
 920=Regel hinzugefügt:
 925=Regel aktualisiert:
@@ -144,6 +147,8 @@ Author=HJS
 935=Regel aktiviert:
 940=Regel deaktiviert:
 945=Angepasst:
+946=Regeln angewendet:
+947=Keine passenden Fenster gefunden
 950=Kein passendes Fenster gefunden zum Testen!
 955=Fenster existiert nicht mehr!
 960=Keine Fenster gefunden!
@@ -152,5 +157,6 @@ Author=HJS
 975=Bestätigung
 980=Ungültige Eingabe
 985=Bitte nur einen einzelnen Buchstaben (A-Z) oder eine Zahl (0-9) eingeben.
+986=Beide Hotkeys dürfen nicht identisch sein!
 990=Keine Sprachdateien gefunden!
 995=Fehler

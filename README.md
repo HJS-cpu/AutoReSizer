@@ -2,7 +2,7 @@
 
 **AutoReSizer** is a modern window management tool for Windows that automatically positions windows in the desired size and position. It is the reimagined version of the classic AutoSizer concept, completely rebuilt with AutoHotkey v2.
 
-![AutoReSizer Version](https://img.shields.io/badge/version-1.5.4-blue)
+![AutoReSizer Version](https://img.shields.io/badge/version-1.5.6-blue)
 ![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2.0-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange)
@@ -144,7 +144,13 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## 📜 Changelog
 
-### Version 1.5.4 (Current)
+### Version 1.5.6 (Current)
+- Centered buttons in all dialogs for improved UI consistency
+- All buttons in Rules Manager now have equal width
+- Renamed "Pause All" to "Pause" for better button fit
+- Updated language files
+
+### Version 1.5.4
 - Fixed rules list refresh when Rules Manager window is already open
 - Rules added via hotkey capture now immediately appear in open Rules Manager
 - Improved window state synchronization
