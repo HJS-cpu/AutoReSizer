@@ -1,4 +1,4 @@
-AutoReSizer 
+﻿AutoReSizer 
 ===========
 
 - Automatic Window Positioning: Define rules for specific windows that are 
@@ -18,9 +18,18 @@ AutoReSizer
 - Compact Design: Sleek, modern user interface
 
 
-Current Version: v1.5.4
+Current Version: v1.5.6
 
 Version history:
+
+Version 1.5.6
++ Centered buttons in all dialogs for improved UI consistency
++ All buttons in Rules Manager now have equal width
++ Renamed "Pause All" to "Pause" for better button fit
++ Updated language files
+
+Version 1.5.5
++ Added hotkey for applying all rules immediately
 
 Version 1.5.4
 + Minor Fix
