@@ -36,7 +36,7 @@ jobs:
           & "C:\AutoHotkey\Compiler\Ahk2Exe.exe" `
             /in "AutoReSizer.ahk" `
             /out "AutoReSizer.exe" `
-            /icon "Icon.ico" `
+            /icon "icon\icon.ico" `
             /bin "C:\AutoHotkey\v2\AutoHotkey64.exe"
 
       - name: Upload artifact
