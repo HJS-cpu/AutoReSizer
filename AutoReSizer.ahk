@@ -1,6 +1,7 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 Persistent
+FileEncoding "UTF-8"
 
 ; ============================================================
 ; AutoReSizer - Window Size/Position Manager
