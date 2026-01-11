@@ -31,7 +31,11 @@ jobs:
       - name: Compile script
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           Set-Location $env:GITHUB_WORKSPACE
+
+          if (-not (Test-Path "AutoReSizer.ahk")) { throw "AutoReSizer.ahk not found in workspace." }
+          if (-not (Test-Path "icons\icon.ico")) { throw "Icon not found: icons\icon.ico" }
 
           & "C:\AutoHotkey\Compiler\Ahk2Exe.exe" `
             /in "AutoReSizer.ahk" `
@@ -39,10 +43,13 @@ jobs:
             /icon "icons\icon.ico" `
             /bin "C:\AutoHotkey\v2\AutoHotkey64.exe"
 
+          if (-not (Test-Path "AutoReSizer.exe")) { throw "AutoReSizer.exe was not created." }
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: AutoReSizer
+          if-no-files-found: error
           path: |
             AutoReSizer.exe
             Deutsch.lng
