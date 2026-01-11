@@ -35,15 +35,45 @@ jobs:
           Set-Location $env:GITHUB_WORKSPACE
 
           if (-not (Test-Path "AutoReSizer.ahk")) { throw "AutoReSizer.ahk not found in workspace." }
-          if (-not (Test-Path "icons\icon.ico")) { throw "Icon not found: icons\icon.ico" }
+          if (-not (Test-Path "icons\icon.ico"))  { throw "Icon not found: icons\icon.ico" }
 
-          & "C:\AutoHotkey\Compiler\Ahk2Exe.exe" `
+          # Run compiler and capture its output
+          $log = & "C:\AutoHotkey\Compiler\Ahk2Exe.exe" `
             /in "AutoReSizer.ahk" `
             /out "AutoReSizer.exe" `
             /icon "icons\icon.ico" `
-            /bin "C:\AutoHotkey\v2\AutoHotkey64.exe"
+            /bin "C:\AutoHotkey\v2\AutoHotkey64.exe" 2>&1
 
-          if (-not (Test-Path "AutoReSizer.exe")) { throw "AutoReSizer.exe was not created." }
+          $log | ForEach-Object { Write-Host $_ }
+
+          # Give filesystem/AV a brief moment
+          Start-Sleep -Milliseconds 400
+
+          # Prefer the path reported by Ahk2Exe ("Successfully compiled as:")
+          $exePath = $null
+          foreach ($line in $log) {
+            if ($line -match 'Successfully compiled as:\s*"(.*?\.exe)"') {
+              $exePath = $matches[1]
+              break
+            }
+          }
+
+          # Fallback: find in workspace (in case Ahk2Exe output format changes)
+          if (-not $exePath -or -not (Test-Path -LiteralPath $exePath)) {
+            $exePath = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -Filter "AutoReSizer.exe" -ErrorAction SilentlyContinue |
+                       Select-Object -First 1 -ExpandProperty FullName
+          }
+
+          if (-not $exePath -or -not (Test-Path -LiteralPath $exePath)) {
+            Write-Host "Workspace contents (root):"
+            Get-ChildItem -Path $env:GITHUB_WORKSPACE -Force | Format-Table -AutoSize
+            throw "AutoReSizer.exe was not created (or was removed/quarantined)."
+          }
+
+          # Ensure the EXE is at the expected root name for the upload paths below
+          if ($exePath -ne (Join-Path $env:GITHUB_WORKSPACE "AutoReSizer.exe")) {
+            Copy-Item -LiteralPath $exePath -Destination (Join-Path $env:GITHUB_WORKSPACE "AutoReSizer.exe") -Force
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
