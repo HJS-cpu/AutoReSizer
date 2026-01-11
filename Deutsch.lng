@@ -1,4 +1,4 @@
-﻿; ============================================================
+; ============================================================
 ; AutoReSizer - Sprachdatei Deutsch
 ; Version: 1.5.6
 ; ============================================================
@@ -94,6 +94,10 @@ Author=HJS
 560=Hinzufügen
 565=Testen
 570=Abbrechen
+575=X = Horizontale Position auf dem Bildschirm
+576=Y = Vertikale Position auf dem Bildschirm
+577=W = Breite des Fensters
+578=H = Höhe des Fensters
 
 ; ============================================================
 ; Regel bearbeiten (600-699)
