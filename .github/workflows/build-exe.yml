@@ -1,37 +1,91 @@
-      - name: Compile script
+name: Build AutoReSizer EXE and ZIP
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download AutoHotkey v1 (Compiler) + AutoHotkey v2 (Base)
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\ahk1" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\ahk2" | Out-Null
+
+          Invoke-WebRequest `
+            -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v1.1.37.02/AutoHotkey_1.1.37.02.zip" `
+            -OutFile "$env:RUNNER_TEMP\ahk1.zip"
+          Expand-Archive -Path "$env:RUNNER_TEMP\ahk1.zip" -DestinationPath "$env:RUNNER_TEMP\ahk1" -Force
+
+          Invoke-WebRequest `
+            -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip" `
+            -OutFile "$env:RUNNER_TEMP\ahk2.zip"
+          Expand-Archive -Path "$env:RUNNER_TEMP\ahk2.zip" -DestinationPath "$env:RUNNER_TEMP\ahk2" -Force
+
+      - name: Compile AutoHotkey v2 script to EXE (with icon)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
           Set-Location $env:GITHUB_WORKSPACE
 
-          # Finde Ahk2Exe.exe (Pfad kann je nach ZIP-Struktur variieren)
-          $ahk2exe = Get-ChildItem "C:\AutoHotkey" -Recurse -Filter "Ahk2Exe.exe" -ErrorAction Stop |
-                    Select-Object -First 1 -ExpandProperty FullName
+          if (-not (Test-Path ".\AutoReSizer.ahk")) { throw "Missing AutoReSizer.ahk in repository root." }
+          if (-not (Test-Path ".\Icons\icon.ico")) { throw "Missing icon file: icons/icon.ico" }
 
-          if (-not $ahk2exe) { throw "Ahk2Exe.exe not found under C:\AutoHotkey" }
-          Write-Host "Using Ahk2Exe: $ahk2exe"
+          $Ahk2Exe = Get-ChildItem "$env:RUNNER_TEMP\ahk1" -Recurse -Filter "Ahk2Exe.exe" |
+                     Select-Object -First 1 -ExpandProperty FullName
+          if (-not $Ahk2Exe) { throw "Ahk2Exe.exe not found in extracted AHK v1 package." }
 
-          # Finde AutoHotkey64.exe (v2 base file)
-          $base = Get-ChildItem "C:\AutoHotkey\v2" -Recurse -Filter "AutoHotkey64.exe" -ErrorAction Stop |
-                  Select-Object -First 1 -ExpandProperty FullName
+          $BaseBin = Get-ChildItem "$env:RUNNER_TEMP\ahk2" -Recurse -Filter "AutoHotkey64.exe" |
+                     Select-Object -First 1 -ExpandProperty FullName
+          if (-not $BaseBin) { throw "AutoHotkey64.exe not found in extracted AHK v2 package." }
 
-          if (-not $base) { throw "AutoHotkey64.exe not found under C:\AutoHotkey\v2" }
-          Write-Host "Using base: $base"
+          Write-Host "Compiler: $Ahk2Exe"
+          Write-Host "Base:     $BaseBin"
 
-          # Icon-Pfad (bitte ggf. an dein Repo anpassen)
-          $icon = Join-Path $env:GITHUB_WORKSPACE "icons\icon.ico"
-          if (-not (Test-Path $icon)) { throw "Icon not found: $icon" }
+          & $Ahk2Exe `
+            /in ".\AutoReSizer.ahk" `
+            /out ".\AutoReSizer.exe" `
+            /icon ".\Icons\icon.ico" `
+            /bin "$BaseBin"
 
-          & $ahk2exe `
-            /in "AutoReSizer.ahk" `
-            /out "AutoReSizer.exe" `
-            /icon $icon `
-            /bin $base
+          if (-not (Test-Path ".\AutoReSizer.exe")) { throw "Compile failed: AutoReSizer.exe was not created." }
 
-          # Debug-Listing
-          Write-Host "Workspace contents:"
-          Get-ChildItem -Force -File | Select-Object Name, Length
+      - name: Create ZIP package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:GITHUB_WORKSPACE
 
-          # Harte Prüfung: EXE muss existieren
-          if (-not (Test-Path "AutoReSizer.exe")) {
-            throw "Compile did not produce AutoReSizer.exe in workspace."
+          $files = @(
+            "AutoReSizer.exe",
+            "Deutsch.lng",
+            "English.lng",
+            "license.txt",
+            "readme.txt"
+          )
+
+          foreach ($f in $files) {
+            if (-not (Test-Path $f)) { throw "Missing file for ZIP: $f" }
           }
+
+          $zip = "AutoReSizer.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+
+          Compress-Archive -Path $files -DestinationPath $zip -Force
+
+          if (-not (Test-Path $zip)) { throw "ZIP creation failed: AutoReSizer.zip not created." }
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoReSizer
+          path: AutoReSizer.zip
+          if-no-files-found: error
