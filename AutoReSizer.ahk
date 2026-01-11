@@ -1071,7 +1071,7 @@ DeleteRuleFromList(ctrl, *) {
 ; ============================================================
 EditRule(rule) {
     global MyGui, MyEdX, MyEdY, MyEdW, MyEdH, MyMatchDDL, MyMaximizeChk, MyRuleName, MyEnabledChk
-    global CaptureClass, CaptureTitle, CaptureHwnd, AppName
+    global CaptureClass, CaptureTitle, CaptureHwnd, AppName, ToolTipControls
     
     if (IsGuiVisible(MyGui)) {
         WinActivate("ahk_id " MyGui.Hwnd)
@@ -1086,6 +1086,7 @@ EditRule(rule) {
     
     MyGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox -Resize", L("EditRule", "600"))
     MyGui.SetFont("s9")
+    ToolTipControls := Map()
     
     MyGui.Add("GroupBox", "w320 h105", L("EditRule", "605"))
     MyGui.Add("Text", "xp+10 yp+18", L("EditRule", "610"))
@@ -1105,14 +1106,19 @@ EditRule(rule) {
     MyMaximizeChk.Value := rule.maximize
     MyMaximizeChk.OnEvent("Click", OnMaximizeToggle)
     
-    MyGui.Add("Text", "x20 yp+25", "X:")
+    lblX := MyGui.Add("Text", "x20 yp+25 +0x100", "X:")
     MyEdX := MyGui.Add("Edit", "x38 yp-3 w50 Number", rule.x)
-    MyGui.Add("Text", "x95 yp+3", "Y:")
+    lblY := MyGui.Add("Text", "x95 yp+3 +0x100", "Y:")
     MyEdY := MyGui.Add("Edit", "x113 yp-3 w50 Number", rule.y)
-    MyGui.Add("Text", "x170 yp+3", "W:")
+    lblW := MyGui.Add("Text", "x175 yp+3 +0x100", "W:")
     MyEdW := MyGui.Add("Edit", "x193 yp-3 w50 Number", rule.w)
-    MyGui.Add("Text", "x250 yp+3", "H:")
+    lblH := MyGui.Add("Text", "x255 yp+3 +0x100", "H:")
     MyEdH := MyGui.Add("Edit", "x273 yp-3 w50 Number", rule.h)
+
+    ToolTipControls[lblX.Hwnd] := L("CaptureWindow", "575")
+    ToolTipControls[lblY.Hwnd] := L("CaptureWindow", "576")
+    ToolTipControls[lblW.Hwnd] := L("CaptureWindow", "577")
+    ToolTipControls[lblH.Hwnd] := L("CaptureWindow", "578")
     
     MyGui.Add("Text", "x20 yp+28", L("EditRule", "640"))
     chooseIndex := (rule.matchType = "class") ? 1 : 2
@@ -1429,14 +1435,19 @@ CaptureSpecificWindow(hwnd) {
     MyMaximizeChk := MyGui.Add("Checkbox", "xp+10 yp+18", L("CaptureWindow", "540"))
     MyMaximizeChk.OnEvent("Click", OnMaximizeToggle)
     
-    MyGui.Add("Text", "x20 yp+25", "X:")
+    lblX := MyGui.Add("Text", "x20 yp+25 +0x100", "X:")
     MyEdX := MyGui.Add("Edit", "x38 yp-3 w50 Number", curX)
-    MyGui.Add("Text", "x95 yp+3", "Y:")
+    lblY := MyGui.Add("Text", "x95 yp+3 +0x100", "Y:")
     MyEdY := MyGui.Add("Edit", "x113 yp-3 w50 Number", curY)
-    MyGui.Add("Text", "x170 yp+3", "W:")
+    lblW := MyGui.Add("Text", "x175 yp+3 +0x100", "W:")
     MyEdW := MyGui.Add("Edit", "x193 yp-3 w50 Number", curW)
-    MyGui.Add("Text", "x250 yp+3", "H:")
+    lblH := MyGui.Add("Text", "x255 yp+3 +0x100", "H:")
     MyEdH := MyGui.Add("Edit", "x273 yp-3 w50 Number", curH)
+
+    ToolTipControls[lblX.Hwnd] := L("CaptureWindow", "575")
+    ToolTipControls[lblY.Hwnd] := L("CaptureWindow", "576")
+    ToolTipControls[lblW.Hwnd] := L("CaptureWindow", "577")
+    ToolTipControls[lblH.Hwnd] := L("CaptureWindow", "578")
     
     MyGui.Add("Text", "x20 yp+28", L("CaptureWindow", "545"))
     MyMatchDDL := MyGui.Add("DropDownList", "x100 yp-3 w120 Choose1", [L("CaptureWindow", "550"), L("CaptureWindow", "555")])
