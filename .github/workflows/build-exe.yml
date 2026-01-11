@@ -30,17 +30,22 @@ jobs:
             -OutFile "$env:RUNNER_TEMP\ahk2.zip"
           Expand-Archive -Path "$env:RUNNER_TEMP\ahk2.zip" -DestinationPath "$env:RUNNER_TEMP\ahk2" -Force
 
-      - name: Compile AutoHotkey v2 script to EXE (with icon)
+      - name: Compile and create ZIP (immediately)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-
           $ws = $env:GITHUB_WORKSPACE
           Set-Location $ws
 
+          # Sanity checks
           if (-not (Test-Path "$ws\AutoReSizer.ahk")) { throw "Missing AutoReSizer.ahk in repository root." }
           if (-not (Test-Path "$ws\Icons\icon.ico")) { throw "Missing icon file: Icons/icon.ico" }
 
+          foreach ($f in @("Deutsch.lng","English.lng","license.txt","readme.txt")) {
+            if (-not (Test-Path "$ws\$f")) { throw "Missing file for ZIP: $f" }
+          }
+
+          # Locate tools
           $Ahk2Exe = Get-ChildItem "$env:RUNNER_TEMP\ahk1" -Recurse -Filter "Ahk2Exe.exe" |
                      Select-Object -First 1 -ExpandProperty FullName
           if (-not $Ahk2Exe) { throw "Ahk2Exe.exe not found in extracted AHK v1 package." }
@@ -59,43 +64,30 @@ jobs:
           Write-Host "Out:      $outExe"
           Write-Host "Icon:     $iconFile"
 
+          # Compile
           & $Ahk2Exe /in $inScript /out $outExe /icon $iconFile /bin $BaseBin
 
-          if (-not (Test-Path $outExe)) {
-            Write-Host "Workspace contents (for debugging):"
-            Get-ChildItem -Path $ws -Force | Select-Object FullName
-            throw "Compile failed: expected output not found at $outExe"
+          # Give filesystem/AV a moment, then try to locate the EXE robustly
+          Start-Sleep -Milliseconds 400
+
+          $exeCandidates = @()
+
+          if (Test-Path -LiteralPath $outExe) {
+            $exeCandidates += $outExe
           }
 
-      - name: Create ZIP package
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $ws = $env:GITHUB_WORKSPACE
-          Set-Location $ws
+          # Search common locations (workspace + runner temp)
+          $exeCandidates += (Get-ChildItem -Path $ws -Recurse -Filter "AutoReSizer.exe" -ErrorAction SilentlyContinue |
+                             Select-Object -ExpandProperty FullName)
+          $exeCandidates += (Get-ChildItem -Path $env:RUNNER_TEMP -Recurse -Filter "AutoReSizer.exe" -ErrorAction SilentlyContinue |
+                             Select-Object -ExpandProperty FullName)
 
-          $files = @(
-            "AutoReSizer.exe",
-            "Deutsch.lng",
-            "English.lng",
-            "license.txt",
-            "readme.txt"
-          )
+          $exePath = $exeCandidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
 
-          foreach ($f in $files) {
-            if (-not (Test-Path "$ws\$f")) { throw "Missing file for ZIP: $f" }
+          if (-not $exePath) {
+            Write-Host "DEBUG: listing workspace root"
+            Get-ChildItem -Path $ws -Force | Format-Table -AutoSize
+            throw "Compile failed: AutoReSizer.exe could not be found (may have been removed/quarantined)."
           }
 
-          $zip = "$ws\AutoReSizer.zip"
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-
-          Compress-Archive -Path $files -DestinationPath $zip -Force
-
-          if (-not (Test-Path $zip)) { throw "ZIP creation failed: AutoReSizer.zip not created." }
-
-      - name: Upload ZIP artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AutoReSizer
-          path: AutoReSizer.zip
-          if-no-files-found: error
+          Write-Host "Us
