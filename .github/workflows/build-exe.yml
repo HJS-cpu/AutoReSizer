@@ -34,10 +34,12 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Set-Location $env:GITHUB_WORKSPACE
 
-          if (-not (Test-Path ".\AutoReSizer.ahk")) { throw "Missing AutoReSizer.ahk in repository root." }
-          if (-not (Test-Path ".\Icons\icon.ico")) { throw "Missing icon file: icons/icon.ico" }
+          $ws = $env:GITHUB_WORKSPACE
+          Set-Location $ws
+
+          if (-not (Test-Path "$ws\AutoReSizer.ahk")) { throw "Missing AutoReSizer.ahk in repository root." }
+          if (-not (Test-Path "$ws\Icons\icon.ico")) { throw "Missing icon file: Icons/icon.ico" }
 
           $Ahk2Exe = Get-ChildItem "$env:RUNNER_TEMP\ahk1" -Recurse -Filter "Ahk2Exe.exe" |
                      Select-Object -First 1 -ExpandProperty FullName
@@ -47,22 +49,30 @@ jobs:
                      Select-Object -First 1 -ExpandProperty FullName
           if (-not $BaseBin) { throw "AutoHotkey64.exe not found in extracted AHK v2 package." }
 
+          $inScript = "$ws\AutoReSizer.ahk"
+          $outExe   = "$ws\AutoReSizer.exe"
+          $iconFile = "$ws\Icons\icon.ico"
+
           Write-Host "Compiler: $Ahk2Exe"
           Write-Host "Base:     $BaseBin"
+          Write-Host "In:       $inScript"
+          Write-Host "Out:      $outExe"
+          Write-Host "Icon:     $iconFile"
 
-          & $Ahk2Exe `
-            /in ".\AutoReSizer.ahk" `
-            /out ".\AutoReSizer.exe" `
-            /icon ".\Icons\icon.ico" `
-            /bin "$BaseBin"
+          & $Ahk2Exe /in $inScript /out $outExe /icon $iconFile /bin $BaseBin
 
-          if (-not (Test-Path ".\AutoReSizer.exe")) { throw "Compile failed: AutoReSizer.exe was not created." }
+          if (-not (Test-Path $outExe)) {
+            Write-Host "Workspace contents (for debugging):"
+            Get-ChildItem -Path $ws -Force | Select-Object FullName
+            throw "Compile failed: expected output not found at $outExe"
+          }
 
       - name: Create ZIP package
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Set-Location $env:GITHUB_WORKSPACE
+          $ws = $env:GITHUB_WORKSPACE
+          Set-Location $ws
 
           $files = @(
             "AutoReSizer.exe",
@@ -73,10 +83,10 @@ jobs:
           )
 
           foreach ($f in $files) {
-            if (-not (Test-Path $f)) { throw "Missing file for ZIP: $f" }
+            if (-not (Test-Path "$ws\$f")) { throw "Missing file for ZIP: $f" }
           }
 
-          $zip = "AutoReSizer.zip"
+          $zip = "$ws\AutoReSizer.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
 
           Compress-Archive -Path $files -DestinationPath $zip -Force
