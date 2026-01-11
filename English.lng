@@ -1,4 +1,4 @@
-﻿; ============================================================
+; ============================================================
 ; AutoReSizer - Language File English
 ; Version: 1.5.6
 ; ============================================================
@@ -94,6 +94,10 @@ Author=test
 560=Add
 565=Test
 570=Cancel
+575=X = Horizontal position on the screen
+576=Y = Vertical position on the screen
+577=W = Width of the window
+578=H = Height of the window
 
 ; ============================================================
 ; Edit Rule (600-699)
