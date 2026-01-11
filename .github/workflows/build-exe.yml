@@ -1,51 +1,37 @@
-name: Compile AutoHotkey v2
-
-on:
-  push:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download AutoHotkey v1 (Compiler)
-        shell: pwsh
-        run: |
-          Invoke-WebRequest `
-            https://github.com/AutoHotkey/AutoHotkey/releases/download/v1.1.37.02/AutoHotkey_1.1.37.02.zip `
-            -OutFile ahk1.zip
-          Expand-Archive ahk1.zip C:\AutoHotkey
-
-      - name: Download AutoHotkey v2 (Interpreter)
-        shell: pwsh
-        run: |
-          Invoke-WebRequest `
-            https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip `
-            -OutFile ahk2.zip
-          Expand-Archive ahk2.zip C:\AutoHotkey\v2
-
       - name: Compile script
         shell: pwsh
         run: |
           Set-Location $env:GITHUB_WORKSPACE
 
-          & "C:\AutoHotkey\Compiler\Ahk2Exe.exe" `
+          # Finde Ahk2Exe.exe (Pfad kann je nach ZIP-Struktur variieren)
+          $ahk2exe = Get-ChildItem "C:\AutoHotkey" -Recurse -Filter "Ahk2Exe.exe" -ErrorAction Stop |
+                    Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $ahk2exe) { throw "Ahk2Exe.exe not found under C:\AutoHotkey" }
+          Write-Host "Using Ahk2Exe: $ahk2exe"
+
+          # Finde AutoHotkey64.exe (v2 base file)
+          $base = Get-ChildItem "C:\AutoHotkey\v2" -Recurse -Filter "AutoHotkey64.exe" -ErrorAction Stop |
+                  Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $base) { throw "AutoHotkey64.exe not found under C:\AutoHotkey\v2" }
+          Write-Host "Using base: $base"
+
+          # Icon-Pfad (bitte ggf. an dein Repo anpassen)
+          $icon = Join-Path $env:GITHUB_WORKSPACE "icons\icon.ico"
+          if (-not (Test-Path $icon)) { throw "Icon not found: $icon" }
+
+          & $ahk2exe `
             /in "AutoReSizer.ahk" `
             /out "AutoReSizer.exe" `
-            /icon "icon\icon.ico" `
-            /bin "C:\AutoHotkey\v2\AutoHotkey64.exe"
+            /icon $icon `
+            /bin $base
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AutoReSizer
-          path: |
-            AutoReSizer.exe
-            Deutsch.lng
-            English.lng
-            license.txt
-            readme.txt
+          # Debug-Listing
+          Write-Host "Workspace contents:"
+          Get-ChildItem -Force -File | Select-Object Name, Length
+
+          # Harte Prüfung: EXE muss existieren
+          if (-not (Test-Path "AutoReSizer.exe")) {
+            throw "Compile did not produce AutoReSizer.exe in workspace."
+          }
