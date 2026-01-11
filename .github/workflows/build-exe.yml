@@ -1,4 +1,4 @@
-name: Build AutoReSizer EXE and ZIP
+name: Compile AutoHotkey v2
 
 on:
   push:
@@ -12,82 +12,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download AutoHotkey v1 (Compiler) + AutoHotkey v2 (Base)
+      - name: Download AutoHotkey v1 (Compiler)
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-
-          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\ahk1" | Out-Null
-          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\ahk2" | Out-Null
-
           Invoke-WebRequest `
-            -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v1.1.37.02/AutoHotkey_1.1.37.02.zip" `
-            -OutFile "$env:RUNNER_TEMP\ahk1.zip"
-          Expand-Archive -Path "$env:RUNNER_TEMP\ahk1.zip" -DestinationPath "$env:RUNNER_TEMP\ahk1" -Force
+            https://github.com/AutoHotkey/AutoHotkey/releases/download/v1.1.37.02/AutoHotkey_1.1.37.02.zip `
+            -OutFile ahk1.zip
+          Expand-Archive ahk1.zip C:\AutoHotkey
 
-          Invoke-WebRequest `
-            -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip" `
-            -OutFile "$env:RUNNER_TEMP\ahk2.zip"
-          Expand-Archive -Path "$env:RUNNER_TEMP\ahk2.zip" -DestinationPath "$env:RUNNER_TEMP\ahk2" -Force
-
-      - name: Compile and create ZIP (immediately)
+      - name: Download AutoHotkey v2 (Interpreter)
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $ws = $env:GITHUB_WORKSPACE
-          Set-Location $ws
+          Invoke-WebRequest `
+            https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.11/AutoHotkey_2.0.11.zip `
+            -OutFile ahk2.zip
+          Expand-Archive ahk2.zip C:\AutoHotkey\v2
 
-          # Sanity checks
-          if (-not (Test-Path "$ws\AutoReSizer.ahk")) { throw "Missing AutoReSizer.ahk in repository root." }
-          if (-not (Test-Path "$ws\Icons\icon.ico")) { throw "Missing icon file: Icons/icon.ico" }
+      - name: Compile script
+        shell: pwsh
+        run: |
+          Set-Location $env:GITHUB_WORKSPACE
 
-          foreach ($f in @("Deutsch.lng","English.lng","license.txt","readme.txt")) {
-            if (-not (Test-Path "$ws\$f")) { throw "Missing file for ZIP: $f" }
-          }
+          & "C:\AutoHotkey\Compiler\Ahk2Exe.exe" `
+            /in "AutoReSizer.ahk" `
+            /out "AutoReSizer.exe" `
+            /icon "icons\icon.ico" `
+            /bin "C:\AutoHotkey\v2\AutoHotkey64.exe"
 
-          # Locate tools
-          $Ahk2Exe = Get-ChildItem "$env:RUNNER_TEMP\ahk1" -Recurse -Filter "Ahk2Exe.exe" |
-                     Select-Object -First 1 -ExpandProperty FullName
-          if (-not $Ahk2Exe) { throw "Ahk2Exe.exe not found in extracted AHK v1 package." }
-
-          $BaseBin = Get-ChildItem "$env:RUNNER_TEMP\ahk2" -Recurse -Filter "AutoHotkey64.exe" |
-                     Select-Object -First 1 -ExpandProperty FullName
-          if (-not $BaseBin) { throw "AutoHotkey64.exe not found in extracted AHK v2 package." }
-
-          $inScript = "$ws\AutoReSizer.ahk"
-          $outExe   = "$ws\AutoReSizer.exe"
-          $iconFile = "$ws\Icons\icon.ico"
-
-          Write-Host "Compiler: $Ahk2Exe"
-          Write-Host "Base:     $BaseBin"
-          Write-Host "In:       $inScript"
-          Write-Host "Out:      $outExe"
-          Write-Host "Icon:     $iconFile"
-
-          # Compile
-          & $Ahk2Exe /in $inScript /out $outExe /icon $iconFile /bin $BaseBin
-
-          # Give filesystem/AV a moment, then try to locate the EXE robustly
-          Start-Sleep -Milliseconds 400
-
-          $exeCandidates = @()
-
-          if (Test-Path -LiteralPath $outExe) {
-            $exeCandidates += $outExe
-          }
-
-          # Search common locations (workspace + runner temp)
-          $exeCandidates += (Get-ChildItem -Path $ws -Recurse -Filter "AutoReSizer.exe" -ErrorAction SilentlyContinue |
-                             Select-Object -ExpandProperty FullName)
-          $exeCandidates += (Get-ChildItem -Path $env:RUNNER_TEMP -Recurse -Filter "AutoReSizer.exe" -ErrorAction SilentlyContinue |
-                             Select-Object -ExpandProperty FullName)
-
-          $exePath = $exeCandidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
-
-          if (-not $exePath) {
-            Write-Host "DEBUG: listing workspace root"
-            Get-ChildItem -Path $ws -Force | Format-Table -AutoSize
-            throw "Compile failed: AutoReSizer.exe could not be found (may have been removed/quarantined)."
-          }
-
-          Write-Host "Us
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoReSizer
+          path: |
+            AutoReSizer.exe
+            Deutsch.lng
+            English.lng
+            license.txt
+            readme.txt
