@@ -1,4 +1,4 @@
-﻿AutoReSizer 
+AutoReSizer 
 ===========
 
 - Automatic Window Positioning: Define rules for specific windows that are 
@@ -18,9 +18,20 @@
 - Compact Design: Sleek, modern user interface
 
 
-Current Version: v1.5.6
+Current Version: v1.5.8
 
 Version history:
+
+Version 1.5.8
++ Stay on Top: Press Ctrl+Win+Space to toggle "Always on Top" for active window
++ Dialog icons now match their corresponding tray menu icons
++ Updated tray icon to use application icon
++ Removed hotkey hint from tray tooltip
+
+Version 1.5.7
++ Pause menu item toggles between "Pause" and "Resume" with appropriate icons
++ Tray icon changes to pause icon when paused
++ Improved window icon handling
 
 Version 1.5.6
 + Centered buttons in all dialogs for improved UI consistency
