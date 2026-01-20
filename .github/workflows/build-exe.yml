@@ -45,6 +45,7 @@ jobs:
           name: AutoReSizer
           path: |
             AutoReSizer.exe
+            AutoReSizer.dll
             Deutsch.lng
             English.lng
             license.txt
