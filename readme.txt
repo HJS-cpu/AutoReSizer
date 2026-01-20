@@ -25,8 +25,6 @@ Version history:
 Version 1.5.8
 + Stay on Top: Press Ctrl+Win+Space to toggle "Always on Top" for active window
 + Dialog icons now match their corresponding tray menu icons
-+ Updated tray icon to use application icon
-+ Removed hotkey hint from tray tooltip
 
 Version 1.5.7
 + Pause menu item toggles between "Pause" and "Resume" with appropriate icons
@@ -84,3 +82,4 @@ Contact Info
 ============
 GitHub: https://github.com/HJS+cpu/AutoReSizer
 E-Mail: autoresizer@gmx.com
+
