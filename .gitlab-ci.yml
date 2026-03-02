@@ -17,10 +17,13 @@ compile:
       Invoke-WebRequest -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$env:AHK_VERSION/AutoHotkey_$env:AHK_VERSION.zip" -OutFile "ahk.zip"
       Expand-Archive -Path "ahk.zip" -DestinationPath "ahk"
 
-      # Ahk2Exe Compiler separat herunterladen
-      Invoke-WebRequest -Uri "https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.zip" -OutFile "ahk2exe.zip"
+      # Ahk2Exe Compiler separat herunterladen (Dateiname ist versioniert)
+      $release = Invoke-RestMethod -Uri "https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest"
+      $zipUrl = $release.assets[0].browser_download_url
+      Write-Output "Ahk2Exe Download: $zipUrl"
+      Invoke-WebRequest -Uri $zipUrl -OutFile "ahk2exe.zip"
       Expand-Archive -Path "ahk2exe.zip" -DestinationPath "ahk2exe"
-      Get-ChildItem -Path "ahk2exe" -Recurse | Select-Object Name
+      Get-ChildItem -Path "ahk2exe" | Select-Object Name, Length
 
       # Kompilieren
       & .\ahk2exe\Ahk2Exe.exe /in AutoReSizer.ahk /out AutoReSizer.exe /icon icons\icon.ico /base ahk\AutoHotkey64.exe
