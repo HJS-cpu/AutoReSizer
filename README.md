@@ -2,7 +2,7 @@
 
 A modern window management tool for Windows that automatically positions and resizes windows based on user-defined rules.
 
-![AutoReSizer](https://img.shields.io/badge/Version-1.5.8-blue) ![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2.0-green) ![License](https://img.shields.io/badge/License-GPL--3.0-orange)
+[![Release](https://gitlab.com/HJS-cpu/autoresizer/-/badges/release.svg)](https://gitlab.com/HJS-cpu/autoresizer/-/releases) [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2.0-green)](https://www.autohotkey.com/) [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](license.txt)
 
 ## Features
 
