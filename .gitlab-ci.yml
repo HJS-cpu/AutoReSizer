@@ -58,14 +58,12 @@ release:
     - job: compile
       artifacts: true
   script:
-    - echo "Release ${CI_COMMIT_TAG} erstellen"
-  release:
-    tag_name: $CI_COMMIT_TAG
-    name: "AutoReSizer ${CI_COMMIT_TAG}"
-    description: "AutoReSizer ${CI_COMMIT_TAG}"
-    assets:
-      links:
-        - name: "AutoReSizer_${CI_COMMIT_TAG}.zip"
-          url: "${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/AutoReSizer_${CI_COMMIT_TAG}.zip?job=compile"
+    - DESCRIPTION=$(cat RELEASE_NOTES.md)
+    - >-
+      release-cli create
+      --name "AutoReSizer ${CI_COMMIT_TAG}"
+      --tag-name "${CI_COMMIT_TAG}"
+      --description "${DESCRIPTION}"
+      --assets-link '{"name":"AutoReSizer_'${CI_COMMIT_TAG}'.zip","url":"'${CI_PROJECT_URL}'/-/jobs/artifacts/'${CI_COMMIT_TAG}'/raw/AutoReSizer_'${CI_COMMIT_TAG}'.zip?job=compile"}'
   rules:
     - if: $CI_COMMIT_TAG
