@@ -17,12 +17,7 @@ compile:
     - if (-not $compiler) { throw "Ahk2Exe.exe nicht gefunden" }
     - Write-Output "Compiler gefunden: $compiler"
     - $base = Get-ChildItem -Path "ahk" -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1 -ExpandProperty FullName
-    - >-
-      & $compiler
-      /in AutoReSizer.ahk
-      /out AutoReSizer.exe
-      /icon icons\icon.ico
-      /base $base
+    - '& $compiler /in AutoReSizer.ahk /out AutoReSizer.exe /icon icons\icon.ico /base $base'
     - if (-not (Test-Path "AutoReSizer.exe")) { throw "Kompilierung fehlgeschlagen" }
     - Write-Output "AutoReSizer.exe erfolgreich erstellt"
   artifacts:
