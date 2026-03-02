@@ -11,7 +11,7 @@ FileEncoding "UTF-8"
 global AppName := "AutoReSizer"
 global AppVersion := "1.5.8"
 global AppAuthor := "HJS"
-global AppGitHub := "https://github.com/HJS-cpu/AutoReSizer"
+global AppGitLab := "https://gitlab.com/HJS-cpu/autoresizer"
 global AppEmail := "autoresizer@gmx.com"
 
 global WindowRules := []
@@ -359,7 +359,7 @@ BuildTrayMenu() {
 
 ; ============================================================
 ShowAbout(*) {
-    global AboutGui, AppName, AppVersion, AppAuthor, AppGitHub, AppEmail
+    global AboutGui, AppName, AppVersion, AppAuthor, AppGitLab, AppEmail
     
     if (IsGuiVisible(AboutGui)) {
         WinActivate("ahk_id " AboutGui.Hwnd)
@@ -383,7 +383,7 @@ ShowAbout(*) {
     AboutGui.SetFont("s9 bold cBlack")
     AboutGui.Add("Text", "x20 w45", "WWW:")
     AboutGui.SetFont("s9 bold")
-    AboutGui.Add("Link", "x70 yp -TabStop", '<a href="' AppGitHub '">' AppGitHub '</a>')
+    AboutGui.Add("Link", "x70 yp -TabStop", '<a href="' AppGitLab '">' AppGitLab '</a>')
     
     AboutGui.SetFont("s9 bold cBlack")
     AboutGui.Add("Text", "x20 w45", "E-Mail:")
