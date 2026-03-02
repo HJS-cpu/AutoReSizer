@@ -12,17 +12,23 @@ compile:
   script:
     - |
       $ErrorActionPreference = "Stop"
+
+      # AutoHotkey v2 herunterladen (Base-Exe)
       Invoke-WebRequest -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$env:AHK_VERSION/AutoHotkey_$env:AHK_VERSION.zip" -OutFile "ahk.zip"
       Expand-Archive -Path "ahk.zip" -DestinationPath "ahk"
-      Get-ChildItem -Path "ahk" -Recurse | Select-Object FullName
-      $compiler = Get-ChildItem -Path "ahk" -Recurse -Filter "Ahk2Exe.exe" | Select-Object -First 1 -ExpandProperty FullName
-      if (-not $compiler) { throw "Ahk2Exe.exe nicht gefunden" }
-      Write-Output "Compiler gefunden: $compiler"
-      $base = Get-ChildItem -Path "ahk" -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1 -ExpandProperty FullName
-      Write-Output "Base gefunden: $base"
-      & $compiler /in AutoReSizer.ahk /out AutoReSizer.exe /icon icons\icon.ico /base $base
-      if (-not (Test-Path "AutoReSizer.exe")) { throw "Kompilierung fehlgeschlagen" }
-      Write-Output "AutoReSizer.exe erfolgreich erstellt"
+
+      # Ahk2Exe Compiler separat herunterladen
+      Invoke-WebRequest -Uri "https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.zip" -OutFile "ahk2exe.zip"
+      Expand-Archive -Path "ahk2exe.zip" -DestinationPath "ahk2exe"
+      Get-ChildItem -Path "ahk2exe" -Recurse | Select-Object Name
+
+      # Kompilieren
+      & .\ahk2exe\Ahk2Exe.exe /in AutoReSizer.ahk /out AutoReSizer.exe /icon icons\icon.ico /base ahk\AutoHotkey64.exe
+      Start-Sleep -Seconds 3
+      if (-not (Test-Path "AutoReSizer.exe")) { Write-Error "Kompilierung fehlgeschlagen"; exit 1 }
+      Write-Output "AutoReSizer.exe erfolgreich erstellt ($(( Get-Item AutoReSizer.exe).Length / 1KB) KB)"
+
+      # Release-ZIP erstellen
       New-Item -ItemType Directory -Path "AutoReSizer" -Force
       Copy-Item -Path "AutoReSizer.exe" -Destination "AutoReSizer\"
       Copy-Item -Path "AutoReSizer.dll" -Destination "AutoReSizer\"
@@ -30,8 +36,8 @@ compile:
       Copy-Item -Path "license.txt" -Destination "AutoReSizer\"
       Copy-Item -Path "Deutsch.lng" -Destination "AutoReSizer\"
       Copy-Item -Path "English.lng" -Destination "AutoReSizer\"
-      Write-Output "Inhalt des ZIP-Ordners:"
-      Get-ChildItem -Path "AutoReSizer\" | Select-Object Name, Length
+      Write-Output "ZIP-Inhalt:"
+      Get-ChildItem -Path "AutoReSizer\" | Format-Table Name, Length
       Compress-Archive -Path "AutoReSizer\*" -DestinationPath "AutoReSizer_$env:CI_COMMIT_TAG.zip"
       Write-Output "AutoReSizer_$env:CI_COMMIT_TAG.zip erstellt"
   artifacts:
