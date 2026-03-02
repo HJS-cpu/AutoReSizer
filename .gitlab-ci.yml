@@ -12,12 +12,17 @@ compile:
   script:
     - Invoke-WebRequest -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v${env:AHK_VERSION}/AutoHotkey_${env:AHK_VERSION}.zip" -OutFile "ahk.zip"
     - Expand-Archive -Path "ahk.zip" -DestinationPath "ahk"
+    - Get-ChildItem -Path "ahk" -Recurse | Select-Object FullName
+    - $compiler = Get-ChildItem -Path "ahk" -Recurse -Filter "Ahk2Exe.exe" | Select-Object -First 1 -ExpandProperty FullName
+    - if (-not $compiler) { throw "Ahk2Exe.exe nicht gefunden" }
+    - Write-Output "Compiler gefunden: $compiler"
+    - $base = Get-ChildItem -Path "ahk" -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1 -ExpandProperty FullName
     - >-
-      .\ahk\Compiler\Ahk2Exe.exe
+      & $compiler
       /in AutoReSizer.ahk
       /out AutoReSizer.exe
       /icon icons\icon.ico
-      /base "ahk\AutoHotkey64.exe"
+      /base $base
     - if (-not (Test-Path "AutoReSizer.exe")) { throw "Kompilierung fehlgeschlagen" }
     - Write-Output "AutoReSizer.exe erfolgreich erstellt"
   artifacts:
