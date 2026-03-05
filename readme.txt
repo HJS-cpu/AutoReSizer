@@ -18,9 +18,14 @@
 - Compact Design: Sleek, modern user interface
 
 
-Current Version: v1.5.8
+Current Version: v1.5.9
 
 Version history:
+
+Version 1.5.9
++ Freely configurable hotkeys: Full key combinations can now be chosen
++ Hotkey capture dialog for intuitive key assignment
++ Code optimizations and bug fixes
 
 Version 1.5.8
 + Fixed tray icon ghosting after exit

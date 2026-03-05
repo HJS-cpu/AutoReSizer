@@ -11,6 +11,15 @@ Automatic window management tool for Windows (AutoHotkey v2.0).
 - **Autostart:** Optionally start with Windows
 - **Stay on Top:** `Ctrl+Win+Space` toggles "Always on Top" for the active window (Hidden Feature)
 
+### Changes in v1.5.9
+- **Freely configurable hotkeys:** Full key combinations can now be chosen via capture dialog (no longer limited to Ctrl+Win+letter)
+- Backward compatible: Existing single-letter hotkey settings are automatically migrated
+- Code optimizations: Centralized window match logic, fixed INI orphaned sections cleanup
+- ProcessedWindows memory leak fix (stale handles cleaned up periodically)
+- Width/height validation for window rules (must be > 0)
+- Removed dead code (`DoCancel`, `ShowRules`, `DoTestRule`)
+- DLL icon path centralized in `IconDll` variable
+
 ### Changes in v1.5.8
 - Fixed tray icon ghosting after exit
 - Added Stay on Top feature (`Ctrl+Win+Space`)

@@ -78,6 +78,12 @@ AutoReSizer/
 
 ## Changelog
 
+### Version 1.5.9
+- **Freely configurable hotkeys:** Full key combinations can now be chosen (no longer limited to Ctrl+Win+letter)
+- Hotkey capture dialog: Press any key combination to assign it
+- Code optimizations: Centralized match logic, fixed INI cleanup, ProcessedWindows memory leak fix
+- Width/height validation for window rules
+
 ### Version 1.5.8
 - Fixed tray icon ghosting after exit
 - Added **Stay on Top** feature (`Ctrl+Win+Space`) - hidden feature

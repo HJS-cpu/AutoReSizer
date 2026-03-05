@@ -5,11 +5,11 @@ FileEncoding "UTF-8"
 
 ; ============================================================
 ; AutoReSizer - Window Size/Position Manager
-; Version: 1.5.8
+; Version: 1.5.9
 ; ============================================================
 
 global AppName := "AutoReSizer"
-global AppVersion := "1.5.8"
+global AppVersion := "1.5.9"
 global AppAuthor := "HJS"
 global AppGitLab := "https://gitlab.com/HJS-cpu/autoresizer"
 global AppEmail := "autoresizer@gmx.com"
@@ -60,6 +60,13 @@ global ApplyRulesHotkeyEnabled := false
 global ApplyRulesHotkeyKey := ""
 global CurrentApplyRulesHotkey := ""
 
+; Hotkey-Capture
+global CaptureHotkeyTarget := ""
+global CaptureHotkeyGui := ""
+global CaptureHotkeyDisplayCtrl := ""
+global TempCaptureHotkey := ""
+global TempApplyRulesHotkey := ""
+
 ; Autostart
 global AutostartEnabled := false
 global AutostartRegKey := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
@@ -73,6 +80,7 @@ global ToolTipControls := Map()
 OnMessage(0x200, OnMouseMove)  ; WM_MOUSEMOVE
 
 global IniFile := A_ScriptDir "\AutoReSizer.ini"
+global IconDll := A_ScriptDir "\AutoReSizer.dll"
 
 ; Tray-Icon vor Beenden verstecken (verhindert Ghosting im Systray)
 OnExit((*) => (A_IconHidden := true, 0))
@@ -107,6 +115,217 @@ SetGuiIcon(guiObj, iconFile, iconNum) {
     SendMessage(0x80, 1, hIcon, , guiObj.Hwnd)  ; WM_SETICON, ICON_BIG
     hIconSmall := LoadPicture(iconFile, "Icon" iconNum " w16", &imgType)
     SendMessage(0x80, 0, hIconSmall, , guiObj.Hwnd)  ; WM_SETICON, ICON_SMALL
+}
+
+; ============================================================
+; Hotkey-Capture: Tastenkombination frei wählen
+; ============================================================
+GetPressedKey() {
+    Loop 26 {
+        key := Chr(64 + A_Index)
+        if GetKeyState(key, "P")
+            return key
+    }
+    Loop 10 {
+        key := String(A_Index - 1)
+        if GetKeyState(key, "P")
+            return key
+    }
+    Loop 12 {
+        key := "F" A_Index
+        if GetKeyState(key, "P")
+            return key
+    }
+    specialKeys := ["Space", "Tab", "Enter", "Backspace", "Delete", "Insert",
+        "Home", "End", "PgUp", "PgDn", "Up", "Down", "Left", "Right",
+        "PrintScreen", "Pause", "CapsLock", "NumLock", "ScrollLock",
+        "Numpad0", "Numpad1", "Numpad2", "Numpad3", "Numpad4",
+        "Numpad5", "Numpad6", "Numpad7", "Numpad8", "Numpad9",
+        "NumpadDot", "NumpadDiv", "NumpadMult", "NumpadAdd", "NumpadSub", "NumpadEnter"]
+    for _, key in specialKeys {
+        if GetKeyState(key, "P")
+            return key
+    }
+    symbolKeys := ["SC029", "SC00C", "SC00D", "SC01A", "SC01B",
+        "SC027", "SC028", "SC02B", "SC056", "SC033", "SC034", "SC035"]
+    for _, key in symbolKeys {
+        if GetKeyState(key, "P")
+            return key
+    }
+    return ""
+}
+
+; ============================================================
+GetKeyDisplayName(key) {
+    static names := Map(
+        "Space", "Space",
+        "SC029", "^ (Circumflex)",
+        "SC00C", "ß",
+        "SC00D", "´ (Accent)",
+        "SC01A", "Ü",
+        "SC01B", "+",
+        "SC027", "Ö",
+        "SC028", "Ä",
+        "SC02B", "# (Hash)",
+        "SC056", "< (Less)",
+        "SC033", ",",
+        "SC034", ".",
+        "SC035", "-",
+        "Enter", "Enter",
+        "Tab", "Tab",
+        "Backspace", "Backspace",
+        "Delete", "Delete",
+        "Insert", "Insert",
+        "Home", "Home",
+        "End", "End",
+        "PgUp", "PgUp",
+        "PgDn", "PgDn",
+        "Up", "Up",
+        "Down", "Down",
+        "Left", "Left",
+        "Right", "Right",
+        "PrintScreen", "Print",
+        "Pause", "Pause",
+        "CapsLock", "CapsLock",
+        "NumLock", "NumLock",
+        "ScrollLock", "ScrollLock"
+    )
+
+    if names.Has(key)
+        return names[key]
+
+    if (SubStr(key, 1, 6) = "Numpad") {
+        num := SubStr(key, 7)
+        numNames := Map("Dot", "Num ,", "Div", "Num /", "Mult", "Num *",
+            "Add", "Num +", "Sub", "Num -", "Enter", "Num Enter")
+        if numNames.Has(num)
+            return numNames[num]
+        return "Num " num
+    }
+
+    if (SubStr(key, 1, 1) = "F" && StrLen(key) <= 3)
+        return key
+
+    if (StrLen(key) = 1)
+        return StrUpper(key)
+
+    return key
+}
+
+; ============================================================
+HotkeyToReadable(hk) {
+    if (hk = "")
+        return L("Settings", "317")
+    readable := ""
+    rest := hk
+    if InStr(rest, "^") {
+        readable .= "CTRL + "
+        rest := StrReplace(rest, "^", "")
+    }
+    if InStr(rest, "!") {
+        readable .= "ALT + "
+        rest := StrReplace(rest, "!", "")
+    }
+    if InStr(rest, "+") {
+        readable .= "SHIFT + "
+        rest := StrReplace(rest, "+", "")
+    }
+    if InStr(rest, "#") {
+        readable .= "WIN + "
+        rest := StrReplace(rest, "#", "")
+    }
+    readable .= StrUpper(GetKeyDisplayName(rest))
+    if (SubStr(readable, -3) = " + ")
+        readable := SubStr(readable, 1, -3)
+    return readable
+}
+
+; ============================================================
+StartHotkeyCapture(target) {
+    global CaptureHotkeyTarget, CaptureHotkeyGui, CaptureHotkeyDisplayCtrl
+
+    CaptureHotkeyTarget := target
+    if IsObject(CaptureHotkeyGui)
+        try CaptureHotkeyGui.Destroy()
+
+    CaptureHotkeyGui := Gui("+AlwaysOnTop +ToolWindow -SysMenu -MinimizeBox -MaximizeBox", L("Settings", "318"))
+    CaptureHotkeyGui.SetFont("s9")
+    CaptureHotkeyGui.SetFont("s11 bold")
+    CaptureHotkeyDisplayCtrl := CaptureHotkeyGui.Add("Text", "w200 h24 Center +Border +0x200", L("Settings", "315"))
+    CaptureHotkeyGui.SetFont("s8 norm cGray")
+    CaptureHotkeyGui.Add("Text", "w200 h16 Center", L("Settings", "316"))
+    CaptureHotkeyGui.Show("AutoSize")
+
+    SetTimer(CheckHotkeyCaptureInput, 50)
+}
+
+; ============================================================
+StopHotkeyCapture() {
+    SetTimer(CheckHotkeyCaptureInput, 0)
+}
+
+; ============================================================
+CheckHotkeyCaptureInput() {
+    global CaptureHotkeyTarget, CaptureHotkeyGui, CaptureHotkeyDisplayCtrl
+    global TempCaptureHotkey, TempApplyRulesHotkey
+    global SettingsHotkeyBtn, SettingsApplyRulesHotkeyBtn
+
+    if (CaptureHotkeyTarget = "")
+        return
+
+    if GetKeyState("Escape", "P") {
+        StopHotkeyCapture()
+        if IsObject(CaptureHotkeyGui)
+            try CaptureHotkeyGui.Destroy()
+        CaptureHotkeyGui := ""
+        CaptureHotkeyTarget := ""
+        KeyWait("Escape")
+        return
+    }
+
+    ctrl := GetKeyState("Ctrl", "P")
+    alt := GetKeyState("Alt", "P")
+    shift := GetKeyState("Shift", "P")
+    win := (GetKeyState("LWin", "P") || GetKeyState("RWin", "P"))
+
+    key := GetPressedKey()
+    if (key = "")
+        return
+
+    hkString := ""
+    if ctrl
+        hkString .= "^"
+    if alt
+        hkString .= "!"
+    if shift
+        hkString .= "+"
+    if win
+        hkString .= "#"
+    hkString .= key
+
+    readable := HotkeyToReadable(hkString)
+    if IsObject(CaptureHotkeyDisplayCtrl)
+        CaptureHotkeyDisplayCtrl.Text := readable
+
+    Sleep(400)
+
+    ; Wert in temporäre Variable und Button-Text aktualisieren
+    if (CaptureHotkeyTarget = "capture") {
+        TempCaptureHotkey := hkString
+        if IsObject(SettingsHotkeyBtn)
+            SettingsHotkeyBtn.Text := readable
+    } else if (CaptureHotkeyTarget = "applyRules") {
+        TempApplyRulesHotkey := hkString
+        if IsObject(SettingsApplyRulesHotkeyBtn)
+            SettingsApplyRulesHotkeyBtn.Text := readable
+    }
+
+    StopHotkeyCapture()
+    if IsObject(CaptureHotkeyGui)
+        try CaptureHotkeyGui.Destroy()
+    CaptureHotkeyGui := ""
+    CaptureHotkeyTarget := ""
+    try KeyWait(key)
 }
 
 ; ============================================================
@@ -272,7 +491,7 @@ ShowLanguageSelect(isFirstRun := false) {
     }
     
     LanguageGui.Show()
-    SetGuiIcon(LanguageGui, A_ScriptDir "\AutoReSizer.dll", 8)
+    SetGuiIcon(LanguageGui, IconDll, 8)
 }
 
 ; ============================================================
@@ -316,19 +535,19 @@ BuildTrayMenu() {
     ; --- About ---
     aboutItem := AppName " v" AppVersion
     TrayMenu.Add(aboutItem, ShowAbout)
-    TrayMenu.SetIcon(aboutItem, A_ScriptDir "\AutoReSizer.dll", 1, 16)
+    TrayMenu.SetIcon(aboutItem, IconDll, 1, 16)
 
     TrayMenu.Add()
 
     ; --- Regeln ---
     itemRules := L("General", "100")
     TrayMenu.Add(itemRules, ShowRulesManager)
-    TrayMenu.SetIcon(itemRules, A_ScriptDir "\AutoReSizer.dll", 6, 16)
+    TrayMenu.SetIcon(itemRules, IconDll, 6, 16)
 
     ; --- Fenster erfassen ---
     itemWindowPicker := L("General", "105")
     TrayMenu.Add(itemWindowPicker, ShowWindowPicker)
-    TrayMenu.SetIcon(itemWindowPicker, A_ScriptDir "\AutoReSizer.dll", 5, 16)
+    TrayMenu.SetIcon(itemWindowPicker, IconDll, 5, 16)
 
     TrayMenu.Add()
 
@@ -336,7 +555,7 @@ BuildTrayMenu() {
     global CurrentPauseMenuItem
     itemPause := L("General", "110")
     TrayMenu.Add(itemPause, ToggleGlobalPause)
-    TrayMenu.SetIcon(itemPause, A_ScriptDir "\AutoReSizer.dll", 4, 16)
+    TrayMenu.SetIcon(itemPause, IconDll, 4, 16)
     CurrentPauseMenuItem := itemPause
 
     TrayMenu.Add()
@@ -344,14 +563,14 @@ BuildTrayMenu() {
     ; --- Einstellungen ---
     itemSettings := L("General", "115")
     TrayMenu.Add(itemSettings, ShowSettings)
-    TrayMenu.SetIcon(itemSettings, A_ScriptDir "\AutoReSizer.dll", 2, 16)
+    TrayMenu.SetIcon(itemSettings, IconDll, 2, 16)
 
     TrayMenu.Add()
 
     ; --- Beenden ---
     itemExit := L("General", "120")
     TrayMenu.Add(itemExit, (*) => ExitApp())
-    TrayMenu.SetIcon(itemExit, A_ScriptDir "\AutoReSizer.dll", 3, 16)
+    TrayMenu.SetIcon(itemExit, IconDll, 3, 16)
 
     A_TrayMenu.Default := L("General", "100")
     UpdatePauseMenu()
@@ -398,7 +617,7 @@ ShowAbout(*) {
     AboutGui.OnEvent("Close", (*) => CloseAbout())
 
     AboutGui.Show()
-    SetGuiIcon(AboutGui, A_ScriptDir "\AutoReSizer.dll", 1)
+    SetGuiIcon(AboutGui, IconDll, 1)
 }
 ; ============================================================
 CloseAbout() {
@@ -418,8 +637,16 @@ LoadSettings() {
     HotkeyEnabled := IniRead(IniFile, "Settings", "HotkeyEnabled", "0") = "1"
     HotkeyKey := IniRead(IniFile, "Settings", "HotkeyKey", "")
 
+    ; Migration: Einzelbuchstabe → volle Tastenkombination
+    if (HotkeyKey != "" && RegExMatch(HotkeyKey, "^[A-Z0-9]$"))
+        HotkeyKey := "^#" HotkeyKey
+
     ApplyRulesHotkeyEnabled := IniRead(IniFile, "Settings", "ApplyRulesHotkeyEnabled", "0") = "1"
     ApplyRulesHotkeyKey := IniRead(IniFile, "Settings", "ApplyRulesHotkeyKey", "")
+
+    ; Migration: Einzelbuchstabe → volle Tastenkombination
+    if (ApplyRulesHotkeyKey != "" && RegExMatch(ApplyRulesHotkeyKey, "^[A-Z0-9]$"))
+        ApplyRulesHotkeyKey := "^#" ApplyRulesHotkeyKey
 
     AutostartEnabled := CheckAutostart()
 }
@@ -496,9 +723,8 @@ RegisterHotkey() {
     ; Capture-Hotkey registrieren
     if (HotkeyEnabled && HotkeyKey != "") {
         try {
-            newHotkey := "^#" HotkeyKey
-            Hotkey(newHotkey, HotkeyCallback, "On")
-            CurrentHotkey := newHotkey
+            Hotkey(HotkeyKey, HotkeyCallback, "On")
+            CurrentHotkey := HotkeyKey
         } catch as err {
             MsgBox("Hotkey error: " err.Message, L("Messages", "995"), "Icon! 4096")
         }
@@ -507,9 +733,8 @@ RegisterHotkey() {
     ; Apply-Rules-Hotkey registrieren
     if (ApplyRulesHotkeyEnabled && ApplyRulesHotkeyKey != "") {
         try {
-            newApplyHotkey := "^#" ApplyRulesHotkeyKey
-            Hotkey(newApplyHotkey, ApplyRulesHotkeyCallback, "On")
-            CurrentApplyRulesHotkey := newApplyHotkey
+            Hotkey(ApplyRulesHotkeyKey, ApplyRulesHotkeyCallback, "On")
+            CurrentApplyRulesHotkey := ApplyRulesHotkeyKey
         } catch as err {
             MsgBox("Hotkey error: " err.Message, L("Messages", "995"), "Icon! 4096")
         }
@@ -536,36 +761,23 @@ ApplyAllRulesNow() {
         return
 
     appliedCount := 0
+    allWindows := WinGetList()
 
     for rule in WindowRules {
         if (!rule.enabled)
             continue
 
-        try {
-            for hwnd in WinGetList() {
+        for hwnd in allWindows {
+            if (MatchesRule(hwnd, rule.match, rule.matchType)) {
                 try {
-                    matched := false
-
-                    if (rule.matchType = "title") {
-                        title := WinGetTitle(hwnd)
-                        if (title && InStr(title, rule.match))
-                            matched := true
-                    } else if (rule.matchType = "class") {
-                        wclass := WinGetClass(hwnd)
-                        if (wclass = rule.match)
-                            matched := true
+                    ; Anwenden auch wenn bereits verarbeitet
+                    if (rule.maximize) {
+                        WinMaximize(hwnd)
+                    } else {
+                        WinMove(rule.x, rule.y, rule.w, rule.h, hwnd)
                     }
-
-                    if (matched) {
-                        ; Anwenden auch wenn bereits verarbeitet
-                        if (rule.maximize) {
-                            WinMaximize(hwnd)
-                        } else {
-                            WinMove(rule.x, rule.y, rule.w, rule.h, hwnd)
-                        }
-                        ProcessedWindows[hwnd] := true
-                        appliedCount++
-                    }
+                    ProcessedWindows[hwnd] := true
+                    appliedCount++
                 }
             }
         }
@@ -590,9 +802,24 @@ IsGuiVisible(guiVar) {
 }
 
 ; ============================================================
+; Prüft ob ein Fenster-Handle zu einer Regel passt
+; ============================================================
+MatchesRule(hwnd, matchValue, matchType) {
+    try {
+        if (matchType = "class")
+            return WinGetClass(hwnd) = matchValue
+        if (matchType = "title") {
+            title := WinGetTitle(hwnd)
+            return title && InStr(title, matchValue)
+        }
+    }
+    return false
+}
+
+; ============================================================
 CloseAllDialogs() {
     global MyGui, RulesManagerGui, WindowPickerGui, SettingsGui, AboutGui, LanguageGui
-    
+
     try {
         if (IsGuiVisible(MyGui))
             MyGui.Destroy()
@@ -656,7 +883,7 @@ UpdatePauseMenu() {
 
     if (CurrentPauseMenuItem != newItem) {
         A_TrayMenu.Rename(CurrentPauseMenuItem, newItem)
-        A_TrayMenu.SetIcon(newItem, A_ScriptDir "\AutoReSizer.dll", iconNum, 16)
+        A_TrayMenu.SetIcon(newItem, IconDll, iconNum, 16)
         CurrentPauseMenuItem := newItem
     }
 }
@@ -666,10 +893,10 @@ UpdateTrayIcon() {
     global GlobalPaused, HotkeyEnabled, HotkeyKey, AppName
 
     if (GlobalPaused) {
-        TraySetIcon(A_ScriptDir "\AutoReSizer.dll", 4)
+        TraySetIcon(IconDll, 4)
         A_IconTip := AppName " - " L("General", "130")
     } else {
-        TraySetIcon(A_ScriptDir "\AutoReSizer.dll", 8)
+        TraySetIcon(IconDll, 8)
         A_IconTip := AppName " - " L("General", "125")
     }
 }
@@ -678,8 +905,9 @@ UpdateTrayIcon() {
 ShowSettings(*) {
     global SettingsGui, HotkeyEnabled, HotkeyKey, AutostartEnabled, AppName
     global ApplyRulesHotkeyEnabled, ApplyRulesHotkeyKey
-    global SettingsHotkeyEdit, SettingsHotkeyChk, SettingsAutostartChk
-    global SettingsApplyRulesHotkeyEdit, SettingsApplyRulesHotkeyChk
+    global SettingsHotkeyBtn, SettingsHotkeyChk, SettingsAutostartChk
+    global SettingsApplyRulesHotkeyBtn, SettingsApplyRulesHotkeyChk
+    global TempCaptureHotkey, TempApplyRulesHotkey
 
     if (IsGuiVisible(SettingsGui)) {
         WinActivate("ahk_id " SettingsGui.Hwnd)
@@ -687,6 +915,8 @@ ShowSettings(*) {
     }
 
     AutostartEnabled := CheckAutostart()
+    TempCaptureHotkey := HotkeyKey
+    TempApplyRulesHotkey := ApplyRulesHotkeyKey
 
     SettingsGui := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox -Resize", L("Settings", "300"))
     SettingsGui.SetFont("s9")
@@ -700,10 +930,9 @@ ShowSettings(*) {
     SettingsHotkeyChk := SettingsGui.Add("Checkbox", "x20 y" (yPos + 20), L("Settings", "310"))
     SettingsHotkeyChk.Value := HotkeyEnabled
     SettingsHotkeyChk.OnEvent("Click", OnHotkeyToggle)
-    SettingsGui.Add("Text", "x20 y" (yPos + 45), L("Settings", "315"))
-    SettingsHotkeyEdit := SettingsGui.Add("Edit", "x90 y" (yPos + 42) " w30 Uppercase Limit1 Center", HotkeyKey)
-    SettingsHotkeyEdit.Enabled := HotkeyEnabled
-    SettingsGui.Add("Text", "x130 y" (yPos + 45) " cGray", L("Settings", "320"))
+    SettingsHotkeyBtn := SettingsGui.Add("Button", "x20 y" (yPos + 42) " w260 h22", HotkeyToReadable(TempCaptureHotkey))
+    SettingsHotkeyBtn.OnEvent("Click", (*) => StartHotkeyCapture("capture"))
+    SettingsHotkeyBtn.Enabled := HotkeyEnabled
 
     yPos += frameHeight + frameSpacing
 
@@ -712,10 +941,9 @@ ShowSettings(*) {
     SettingsApplyRulesHotkeyChk := SettingsGui.Add("Checkbox", "x20 y" (yPos + 20), L("Settings", "365"))
     SettingsApplyRulesHotkeyChk.Value := ApplyRulesHotkeyEnabled
     SettingsApplyRulesHotkeyChk.OnEvent("Click", OnApplyRulesHotkeyToggle)
-    SettingsGui.Add("Text", "x20 y" (yPos + 45), L("Settings", "315"))
-    SettingsApplyRulesHotkeyEdit := SettingsGui.Add("Edit", "x90 y" (yPos + 42) " w30 Uppercase Limit1 Center", ApplyRulesHotkeyKey)
-    SettingsApplyRulesHotkeyEdit.Enabled := ApplyRulesHotkeyEnabled
-    SettingsGui.Add("Text", "x130 y" (yPos + 45) " cGray", L("Settings", "320"))
+    SettingsApplyRulesHotkeyBtn := SettingsGui.Add("Button", "x20 y" (yPos + 42) " w260 h22", HotkeyToReadable(TempApplyRulesHotkey))
+    SettingsApplyRulesHotkeyBtn.OnEvent("Click", (*) => StartHotkeyCapture("applyRules"))
+    SettingsApplyRulesHotkeyBtn.Enabled := ApplyRulesHotkeyEnabled
 
     yPos += frameHeight + frameSpacing
 
@@ -739,7 +967,7 @@ ShowSettings(*) {
     SettingsGui.OnEvent("Close", (*) => CloseSettings())
 
     SettingsGui.Show()
-    SetGuiIcon(SettingsGui, A_ScriptDir "\AutoReSizer.dll", 2)
+    SetGuiIcon(SettingsGui, IconDll, 2)
 }
 
 ; ============================================================
@@ -752,46 +980,39 @@ OpenLanguageFromSettings() {
 
 ; ============================================================
 OnHotkeyToggle(*) {
-    global SettingsHotkeyEdit, SettingsHotkeyChk
+    global SettingsHotkeyBtn, SettingsHotkeyChk
 
-    SettingsHotkeyEdit.Enabled := SettingsHotkeyChk.Value
+    SettingsHotkeyBtn.Enabled := SettingsHotkeyChk.Value
 }
 
 ; ============================================================
 OnApplyRulesHotkeyToggle(*) {
-    global SettingsApplyRulesHotkeyEdit, SettingsApplyRulesHotkeyChk
+    global SettingsApplyRulesHotkeyBtn, SettingsApplyRulesHotkeyChk
 
-    SettingsApplyRulesHotkeyEdit.Enabled := SettingsApplyRulesHotkeyChk.Value
+    SettingsApplyRulesHotkeyBtn.Enabled := SettingsApplyRulesHotkeyChk.Value
 }
 
 ; ============================================================
 SaveSettingsAndClose(*) {
-    global SettingsGui, SettingsHotkeyEdit, SettingsHotkeyChk, SettingsAutostartChk
-    global SettingsApplyRulesHotkeyEdit, SettingsApplyRulesHotkeyChk
+    global SettingsGui, SettingsHotkeyChk, SettingsAutostartChk
+    global SettingsApplyRulesHotkeyChk
     global HotkeyEnabled, HotkeyKey, AppName
     global ApplyRulesHotkeyEnabled, ApplyRulesHotkeyKey
+    global TempCaptureHotkey, TempApplyRulesHotkey
+    global CaptureHotkeyTarget, CaptureHotkeyGui
 
-    newKey := SettingsHotkeyEdit.Value
+    ; Laufende Capture abbrechen
+    StopHotkeyCapture()
+    if IsObject(CaptureHotkeyGui)
+        try CaptureHotkeyGui.Destroy()
+    CaptureHotkeyGui := ""
+    CaptureHotkeyTarget := ""
+
+    newKey := TempCaptureHotkey
     newEnabled := SettingsHotkeyChk.Value
-    newApplyRulesKey := SettingsApplyRulesHotkeyEdit.Value
+    newApplyRulesKey := TempApplyRulesHotkey
     newApplyRulesEnabled := SettingsApplyRulesHotkeyChk.Value
     newAutostart := SettingsAutostartChk.Value
-
-    ; Capture-Hotkey validieren
-    if (newEnabled && newKey != "") {
-        if (!RegExMatch(newKey, "^[A-Z0-9]$")) {
-            MsgBox(L("Messages", "985"), L("Messages", "980"), "Icon! 4096")
-            return
-        }
-    }
-
-    ; Apply-Rules-Hotkey validieren
-    if (newApplyRulesEnabled && newApplyRulesKey != "") {
-        if (!RegExMatch(newApplyRulesKey, "^[A-Z0-9]$")) {
-            MsgBox(L("Messages", "985"), L("Messages", "980"), "Icon! 4096")
-            return
-        }
-    }
 
     ; Prüfen ob beide Hotkeys gleich sind
     if (newEnabled && newApplyRulesEnabled && newKey != "" && newApplyRulesKey != "" && newKey = newApplyRulesKey) {
@@ -814,9 +1035,9 @@ SaveSettingsAndClose(*) {
     ; Tray-Tip für aktivierte Hotkeys
     tipMessages := []
     if (HotkeyEnabled && HotkeyKey != "")
-        tipMessages.Push(L("Messages", "910") " Ctrl+Win+" HotkeyKey)
+        tipMessages.Push(L("Messages", "910") " " HotkeyToReadable(HotkeyKey))
     if (ApplyRulesHotkeyEnabled && ApplyRulesHotkeyKey != "")
-        tipMessages.Push(L("Messages", "911") " Ctrl+Win+" ApplyRulesHotkeyKey)
+        tipMessages.Push(L("Messages", "911") " " HotkeyToReadable(ApplyRulesHotkeyKey))
 
     if (tipMessages.Length > 0) {
         tipText := ""
@@ -831,7 +1052,15 @@ SaveSettingsAndClose(*) {
 
 ; ============================================================
 CloseSettings() {
-    global SettingsGui
+    global SettingsGui, CaptureHotkeyTarget, CaptureHotkeyGui
+
+    ; Laufende Capture abbrechen
+    StopHotkeyCapture()
+    if IsObject(CaptureHotkeyGui)
+        try CaptureHotkeyGui.Destroy()
+    CaptureHotkeyGui := ""
+    CaptureHotkeyTarget := ""
+
     SettingsGui.Destroy()
     SettingsGui := ""
 }
@@ -883,19 +1112,17 @@ SaveRules() {
     global WindowRules, IniFile
     
     ruleCount := WindowRules.Length
-    
-    Loop {
-        section := "Rule" A_Index
-        try {
-            test := IniRead(IniFile, section, "Match", "")
-            if (test = "")
-                break
-            IniDelete(IniFile, section)
-        } catch {
-            break
-        }
+
+    ; Alte Regeln aufräumen (alle bisherigen Sektionen löschen)
+    try {
+        oldCount := Integer(IniRead(IniFile, "General", "RuleCount", "0"))
+    } catch {
+        oldCount := 0
     }
-    
+    Loop oldCount {
+        try IniDelete(IniFile, "Rule" A_Index)
+    }
+
     IniWrite(ruleCount, IniFile, "General", "RuleCount")
     
     for i, rule in WindowRules {
@@ -994,7 +1221,7 @@ ShowRulesManager(*) {
     RefreshRulesList()
 
     RulesManagerGui.Show()
-    SetGuiIcon(RulesManagerGui, A_ScriptDir "\AutoReSizer.dll", 6)
+    SetGuiIcon(RulesManagerGui, IconDll, 6)
 }
 
 ; ============================================================
@@ -1196,7 +1423,7 @@ EditRule(rule) {
     MyGui.OnEvent("Close", DoCancelToManager)
 
     MyGui.Show()
-    SetGuiIcon(MyGui, A_ScriptDir "\AutoReSizer.dll", 6)
+    SetGuiIcon(MyGui, IconDll, 6)
 }
 
 ; ============================================================
@@ -1206,20 +1433,9 @@ FindMatchingWindow(rule) {
     CaptureHwnd := 0
     
     for hwnd in WinGetList() {
-        try {
-            if (rule.matchType = "class") {
-                wclass := WinGetClass(hwnd)
-                if (wclass = rule.match) {
-                    CaptureHwnd := hwnd
-                    return
-                }
-            } else if (rule.matchType = "title") {
-                title := WinGetTitle(hwnd)
-                if (title && InStr(title, rule.match)) {
-                    CaptureHwnd := hwnd
-                    return
-                }
-            }
+        if (MatchesRule(hwnd, rule.match, rule.matchType)) {
+            CaptureHwnd := hwnd
+            return
         }
     }
 }
@@ -1277,7 +1493,13 @@ DoSaveEditedRule(*) {
     targetH := Integer(MyEdH.Value)
     doMaximize := MyMaximizeChk.Value
     isEnabled := MyEnabledChk.Value
-    
+
+    ; W/H-Validierung (nur wenn nicht maximiert)
+    if (!doMaximize && (targetW <= 0 || targetH <= 0)) {
+        MsgBox(L("Messages", "987"), L("Messages", "980"), "Icon! 4096")
+        return
+    }
+
     WindowRules[EditingRuleIndex] := {
         name: ruleName,
         match: rule.match,
@@ -1376,7 +1598,7 @@ ShowWindowPicker(*) {
     
     WindowPickerGui.windowList := windowList
     WindowPickerGui.Show()
-    SetGuiIcon(WindowPickerGui, A_ScriptDir "\AutoReSizer.dll", 5)
+    SetGuiIcon(WindowPickerGui, IconDll, 5)
 }
 
 ; ============================================================
@@ -1514,12 +1736,12 @@ CaptureSpecificWindow(hwnd) {
     
     ; Buttons zentriert (3 Buttons à 100px mit 5px Abstand = 310px, Start bei x15)
     MyGui.Add("Button", "x15 yp+35 w100", L("CaptureWindow", "560")).OnEvent("Click", DoAddRule)
-    MyGui.Add("Button", "x120 yp w100", L("CaptureWindow", "565")).OnEvent("Click", DoTestRule)
+    MyGui.Add("Button", "x120 yp w100", L("CaptureWindow", "565")).OnEvent("Click", DoTestEditedRule)
     MyGui.Add("Button", "x225 yp w100", L("CaptureWindow", "570")).OnEvent("Click", DoCancelToManager)
     MyGui.OnEvent("Close", DoCancelToManager)
 
     MyGui.Show()
-    SetGuiIcon(MyGui, A_ScriptDir "\AutoReSizer.dll", 5)
+    SetGuiIcon(MyGui, IconDll, 5)
 }
 
 ; ============================================================
@@ -1551,7 +1773,13 @@ DoAddRule(*) {
     
     matchType := (matchChoice = L("CaptureWindow", "550")) ? "class" : "title"
     matchValue := (matchType = "class") ? CaptureClass : CaptureTitle
-    
+
+    ; W/H-Validierung (nur wenn nicht maximiert)
+    if (!doMaximize && (targetW <= 0 || targetH <= 0)) {
+        MsgBox(L("Messages", "987"), L("Messages", "980"), "Icon! 4096")
+        return
+    }
+
     existingIndex := 0
     for i, rule in WindowRules {
         if (rule.match = matchValue && rule.matchType = matchType) {
@@ -1604,75 +1832,47 @@ DoAddRule(*) {
 ; ============================================================
 ResetProcessedForMatch(matchValue, matchType) {
     global ProcessedWindows
-    
+
     toRemove := []
-    
+
     for hwnd, _ in ProcessedWindows {
-        try {
-            if (matchType = "class") {
-                wclass := WinGetClass(hwnd)
-                if (wclass = matchValue)
-                    toRemove.Push(hwnd)
-            } else if (matchType = "title") {
-                title := WinGetTitle(hwnd)
-                if (InStr(title, matchValue))
-                    toRemove.Push(hwnd)
-            }
-        }
+        if (MatchesRule(hwnd, matchValue, matchType))
+            toRemove.Push(hwnd)
     }
-    
+
     for hwnd in toRemove
         ProcessedWindows.Delete(hwnd)
 }
 
 ; ============================================================
-DoTestRule(*) {
-    global CaptureHwnd, MyEdX, MyEdY, MyEdW, MyEdH, MyMaximizeChk
-    
-    try {
-        if (MyMaximizeChk.Value) {
-            WinMaximize("ahk_id " CaptureHwnd)
-        } else {
-            WinMove(Integer(MyEdX.Value), Integer(MyEdY.Value),
-                    Integer(MyEdW.Value), Integer(MyEdH.Value), "ahk_id " CaptureHwnd)
-        }
-    }
-}
-
-; ============================================================
-DoCancel(*) {
-    global MyGui, EditingRuleIndex
-    EditingRuleIndex := 0
-    MyGui.Destroy()
-    MyGui := ""
-    SetTimer(CheckWindows, 500)
-}
-
-; ============================================================
 CheckWindows() {
     global WindowRules, ProcessedWindows, GlobalPaused
-    
+
     if (GlobalPaused)
         return
-    
+
+    ; Verwaiste Handles periodisch aufräumen (~60 Sekunden)
+    static lastCleanup := 0
+    if (A_TickCount - lastCleanup > 60000) {
+        lastCleanup := A_TickCount
+        stale := []
+        for hwnd, _ in ProcessedWindows {
+            if !WinExist("ahk_id " hwnd)
+                stale.Push(hwnd)
+        }
+        for hwnd in stale
+            ProcessedWindows.Delete(hwnd)
+    }
+
+    allWindows := WinGetList()
+
     for rule in WindowRules {
         if (!rule.enabled)
             continue
-        
-        try {
-            for hwnd in WinGetList() {
-                try {
-                    if (rule.matchType = "title") {
-                        title := WinGetTitle(hwnd)
-                        if (title && InStr(title, rule.match))
-                            ApplyRule(hwnd, rule)
-                    } else if (rule.matchType = "class") {
-                        wclass := WinGetClass(hwnd)
-                        if (wclass = rule.match)
-                            ApplyRule(hwnd, rule)
-                    }
-                }
-            }
+
+        for hwnd in allWindows {
+            if (MatchesRule(hwnd, rule.match, rule.matchType))
+                ApplyRule(hwnd, rule)
         }
     }
 }
@@ -1694,11 +1894,6 @@ ApplyRule(hwnd, rule) {
         displayName := GetRuleDisplayName(rule)
         TrayTip(AppName, L("Messages", "945") " " displayName, 1)
     }
-}
-
-; ============================================================
-ShowRules(*) {
-    ShowRulesManager()
 }
 
 ; ============================================================

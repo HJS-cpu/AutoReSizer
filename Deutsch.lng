@@ -1,6 +1,6 @@
 ﻿; ============================================================
 ; AutoReSizer - Sprachdatei Deutsch
-; Version: 1.5.8
+; Version: 1.5.9
 ; ============================================================
 
 [Info]
@@ -41,9 +41,10 @@ Author=HJS
 300=Einstellungen
 305=Hotkey für Fenster festlegen
 310=Hotkey aktivieren
-315=Strg + Win +
-320=(Taste eingeben)
-325=Beispiel: 'A' ergibt Strg+Win+A
+315=Tastenkombination drücken
+316=ESC = Abbrechen
+317=(nicht gesetzt)
+318=Hotkey aufnehmen
 330=Windows-Start
 335=Mit Windows starten
 340=OK
@@ -165,5 +166,6 @@ Author=HJS
 980=Ungültige Eingabe
 985=Bitte nur einen einzelnen Buchstaben (A-Z) oder eine Zahl (0-9) eingeben.
 986=Beide Hotkeys dürfen nicht identisch sein!
+987=Breite und Höhe müssen größer als 0 sein.
 990=Keine Sprachdateien gefunden!
 995=Fehler

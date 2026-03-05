@@ -1,6 +1,6 @@
 ﻿; ============================================================
 ; AutoReSizer - Language File English
-; Version: 1.5.8
+; Version: 1.5.9
 ; ============================================================
 
 [Info]
@@ -41,9 +41,10 @@ Author=test
 300=Settings
 305=Hotkey for Window Capture
 310=Enable Hotkey
-315=Ctrl + Win +
-320=(Enter key)
-325=Example: 'A' results in Ctrl+Win+A
+315=Press key combination
+316=ESC = Cancel
+317=(not set)
+318=Capture Hotkey
 330=Windows Startup
 335=Start with Windows
 340=OK
@@ -165,5 +166,6 @@ Author=test
 980=Invalid Input
 985=Please enter only a single letter (A-Z) or number (0-9).
 986=Both hotkeys cannot be the same!
+987=Width and height must be greater than 0.
 990=No language files found!
 995=Error
