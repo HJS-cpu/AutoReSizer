@@ -17,14 +17,6 @@ Automatic window management tool for Windows (AutoHotkey v2.0).
 - Code optimizations: Centralized window match logic, fixed INI orphaned sections cleanup
 - ProcessedWindows memory leak fix (stale handles cleaned up periodically)
 - Width/height validation for window rules (must be > 0)
-- Removed dead code (`DoCancel`, `ShowRules`, `DoTestRule`)
-- DLL icon path centralized in `IconDll` variable
-
-### Changes in v1.5.8
-- Fixed tray icon ghosting after exit
-- Added Stay on Top feature (`Ctrl+Win+Space`)
-- Dialog icons now match their corresponding tray menu icons
-- Tray icon now uses application icon
 
 ### Installation
 1. Download and extract the ZIP file
