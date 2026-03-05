@@ -2,6 +2,9 @@
 .claude/
 CLAUDE.md
 
+# Konfiguration (benutzerspezifisch)
+AutoReSizer.ini
+
 # Backup-Dateien
 AutoReSizer_original.dll
 [Ressourcen]/
