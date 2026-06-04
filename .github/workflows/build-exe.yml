@@ -1,0 +1,62 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: AutoHotkey v2 + Ahk2Exe herunterladen
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ahkVersion = "2.0.18"
+          # AutoHotkey v2 (Base-Exe für /base)
+          Invoke-WebRequest -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$ahkVersion/AutoHotkey_$ahkVersion.zip" -OutFile "ahk.zip"
+          Expand-Archive -Path "ahk.zip" -DestinationPath "ahk"
+          # Ahk2Exe Compiler (latest Release, Dateiname ist versioniert)
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest"
+          $zipUrl = $release.assets[0].browser_download_url
+          Write-Output "Ahk2Exe Download: $zipUrl"
+          Invoke-WebRequest -Uri $zipUrl -OutFile "ahk2exe.zip"
+          Expand-Archive -Path "ahk2exe.zip" -DestinationPath "ahk2exe"
+
+      - name: Kompilieren
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          & .\ahk2exe\Ahk2Exe.exe /in AutoReSizer.ahk /out AutoReSizer.exe /icon icons\icon.ico /base ahk\AutoHotkey64.exe
+          Start-Sleep -Seconds 3
+          if (-not (Test-Path "AutoReSizer.exe")) { Write-Error "Kompilierung fehlgeschlagen"; exit 1 }
+          Write-Output "AutoReSizer.exe erstellt ($([math]::Round((Get-Item AutoReSizer.exe).Length / 1KB)) KB)"
+
+      - name: Release-ZIP erstellen
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "AutoReSizer" -Force | Out-Null
+          Copy-Item "AutoReSizer.exe","AutoReSizer.dll","readme.txt","license.txt","Deutsch.lng","English.lng" -Destination "AutoReSizer\"
+          Compress-Archive -Path "AutoReSizer\*" -DestinationPath "AutoReSizer.zip" -Force
+
+      - name: Artifact hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoReSizer
+          path: AutoReSizer.zip
+
+      - name: GitHub-Release erstellen (nur bei Tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: AutoReSizer ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          files: AutoReSizer.zip

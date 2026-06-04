@@ -86,5 +86,5 @@ Copyright © 2025-2026 HJS (Hans-Joachim Schlingensief)
 
 Contact Info
 ============
-GitLab: https://gitlab.com/HJS-cpu/autoresizer
+GitHub: https://github.com/HJS-cpu/AutoReSizer
 E-Mail: autoresizer@gmx.com
