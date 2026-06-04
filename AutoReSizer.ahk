@@ -105,16 +105,97 @@ UpdateTrayIcon()
 BuildTrayMenu()
 
 SetTimer(CheckWindows, 500)
-SetTimer(TrackActiveWindow, 250)
+SetTimer(TrackActiveWindow, 1000)  ; Last-Active nur als Fallback im Capture-Pfad – 1 Hz genügt
 
 ; ============================================================
 ; GUI-Icon aus DLL setzen
 ; ============================================================
 SetGuiIcon(guiObj, iconFile, iconNum) {
-    hIcon := LoadPicture(iconFile, "Icon" iconNum " w32", &imgType)
-    SendMessage(0x80, 1, hIcon, , guiObj.Hwnd)  ; WM_SETICON, ICON_BIG
-    hIconSmall := LoadPicture(iconFile, "Icon" iconNum " w16", &imgType)
-    SendMessage(0x80, 0, hIconSmall, , guiObj.Hwnd)  ; WM_SETICON, ICON_SMALL
+    ; Icons werden einmalig geladen und gecacht (verhindert HICON-Leak bei
+    ; wiederholtem Dialog-Öffnen; die Handles leben bewusst bis Programmende).
+    static iconCache := Map()
+    keyBig := iconNum "_32"
+    keySmall := iconNum "_16"
+    if (!iconCache.Has(keyBig))
+        iconCache[keyBig] := LoadPicture(iconFile, "Icon" iconNum " w32", &imgType)
+    if (!iconCache.Has(keySmall))
+        iconCache[keySmall] := LoadPicture(iconFile, "Icon" iconNum " w16", &imgType)
+    SendMessage(0x80, 1, iconCache[keyBig], , guiObj.Hwnd)    ; WM_SETICON, ICON_BIG
+    SendMessage(0x80, 0, iconCache[keySmall], , guiObj.Hwnd)  ; WM_SETICON, ICON_SMALL
+}
+
+; ============================================================
+; Allgemeine Hilfsfunktionen (zentral, Review-Refactoring)
+; ============================================================
+
+; Vergleicht zwei Hotkey-Strings unabhängig von der Modifier-Reihenfolge
+HotkeysEqual(a, b) {
+    return NormalizeHotkey(a) = NormalizeHotkey(b)
+}
+
+NormalizeHotkey(hk) {
+    mods := ""
+    for sym in ["^", "!", "+", "#"] {
+        if InStr(hk, sym) {
+            mods .= sym
+            hk := StrReplace(hk, sym)
+        }
+    }
+    return mods StrLower(hk)
+}
+
+; Wandelt einen String robust in eine Ganzzahl; bei ungültigem Wert den Default
+ToInt(value, default) {
+    return RegExMatch(value, "^-?\d+$") ? Integer(value) : default
+}
+
+; Liest/validiert die Zielwerte aus den Edit-Feldern.
+; X/Y dürfen negativ sein (Multi-Monitor), W/H müssen positive Ganzzahlen sein.
+; Gibt false zurück (mit Meldung), wenn ein Feld leer/ungültig ist.
+ValidateRuleInput(doMaximize, &tx, &ty, &tw, &th) {
+    global MyEdX, MyEdY, MyEdW, MyEdH
+
+    if (doMaximize) {
+        tx := 0, ty := 0, tw := 0, th := 0
+        return true
+    }
+
+    sx := Trim(MyEdX.Value), sy := Trim(MyEdY.Value)
+    sw := Trim(MyEdW.Value), sh := Trim(MyEdH.Value)
+
+    if (!RegExMatch(sx, "^-?\d+$") || !RegExMatch(sy, "^-?\d+$")
+        || !RegExMatch(sw, "^\d+$") || !RegExMatch(sh, "^\d+$")) {
+        MsgBox(L("Messages", "993"), L("Messages", "980"), "Icon! 4096")
+        return false
+    }
+
+    tx := Integer(sx), ty := Integer(sy), tw := Integer(sw), th := Integer(sh)
+
+    if (tw <= 0 || th <= 0) {
+        MsgBox(L("Messages", "987"), L("Messages", "980"), "Icon! 4096")
+        return false
+    }
+    return true
+}
+
+; Dialog-Teardown: ggf. zurück zum Regel-Manager und CheckWindows-Timer reaktivieren
+ReturnToManagerOrResume() {
+    global CameFromRulesManager
+    if (CameFromRulesManager) {
+        CameFromRulesManager := false
+        ShowRulesManager()
+    }
+    SetTimer(CheckWindows, 500)
+}
+
+; Bricht eine laufende Hotkey-Erfassung ab und räumt deren GUI auf
+CancelHotkeyCapture() {
+    global CaptureHotkeyGui, CaptureHotkeyTarget
+    StopHotkeyCapture()
+    if IsObject(CaptureHotkeyGui)
+        try CaptureHotkeyGui.Destroy()
+    CaptureHotkeyGui := ""
+    CaptureHotkeyTarget := ""
 }
 
 ; ============================================================
@@ -249,7 +330,6 @@ StartHotkeyCapture(target) {
         try CaptureHotkeyGui.Destroy()
 
     CaptureHotkeyGui := Gui("+AlwaysOnTop +ToolWindow -SysMenu -MinimizeBox -MaximizeBox", L("Settings", "318"))
-    CaptureHotkeyGui.SetFont("s9")
     CaptureHotkeyGui.SetFont("s11 bold")
     CaptureHotkeyDisplayCtrl := CaptureHotkeyGui.Add("Text", "w200 h24 Center +Border +0x200", L("Settings", "315"))
     CaptureHotkeyGui.SetFont("s8 norm cGray")
@@ -274,11 +354,7 @@ CheckHotkeyCaptureInput() {
         return
 
     if GetKeyState("Escape", "P") {
-        StopHotkeyCapture()
-        if IsObject(CaptureHotkeyGui)
-            try CaptureHotkeyGui.Destroy()
-        CaptureHotkeyGui := ""
-        CaptureHotkeyTarget := ""
+        CancelHotkeyCapture()
         KeyWait("Escape")
         return
     }
@@ -320,11 +396,7 @@ CheckHotkeyCaptureInput() {
             SettingsApplyRulesHotkeyBtn.Text := readable
     }
 
-    StopHotkeyCapture()
-    if IsObject(CaptureHotkeyGui)
-        try CaptureHotkeyGui.Destroy()
-    CaptureHotkeyGui := ""
-    CaptureHotkeyTarget := ""
+    CancelHotkeyCapture()
     try KeyWait(key)
 }
 
@@ -514,7 +586,7 @@ ApplyLanguageSelection(languages, isFirstRun) {
     UpdateTrayIcon()
     
     if (!isFirstRun) {
-        TrayTip(AppName, "Language changed", 1)
+        TrayTip(AppName, L("Messages", "906"), 1)
     }
 }
 
@@ -684,7 +756,7 @@ SetAutostart(enable) {
             AutostartEnabled := true
             return true
         } catch as err {
-            MsgBox("Autostart error: " err.Message, L("Messages", "995"), "Icon! 4096")
+            MsgBox(L("Messages", "991") " " err.Message, L("Messages", "995"), "Icon! 4096")
             return false
         }
     } else {
@@ -726,7 +798,7 @@ RegisterHotkey() {
             Hotkey(HotkeyKey, HotkeyCallback, "On")
             CurrentHotkey := HotkeyKey
         } catch as err {
-            MsgBox("Hotkey error: " err.Message, L("Messages", "995"), "Icon! 4096")
+            MsgBox(L("Messages", "992") " " err.Message, L("Messages", "995"), "Icon! 4096")
         }
     }
 
@@ -736,7 +808,7 @@ RegisterHotkey() {
             Hotkey(ApplyRulesHotkeyKey, ApplyRulesHotkeyCallback, "On")
             CurrentApplyRulesHotkey := ApplyRulesHotkeyKey
         } catch as err {
-            MsgBox("Hotkey error: " err.Message, L("Messages", "995"), "Icon! 4096")
+            MsgBox(L("Messages", "992") " " err.Message, L("Messages", "995"), "Icon! 4096")
         }
     }
 
@@ -755,31 +827,22 @@ ApplyRulesHotkeyCallback(*) {
 
 ; ============================================================
 ApplyAllRulesNow() {
-    global WindowRules, ProcessedWindows, GlobalPaused, AppName
+    global ProcessedWindows, GlobalPaused, AppName
 
     if (GlobalPaused)
         return
 
     appliedCount := 0
-    allWindows := WinGetList()
 
-    for rule in WindowRules {
-        if (!rule.enabled)
-            continue
-
-        for hwnd in allWindows {
-            if (MatchesRule(hwnd, rule.match, rule.matchType)) {
-                try {
-                    ; Anwenden auch wenn bereits verarbeitet
-                    if (rule.maximize) {
-                        WinMaximize(hwnd)
-                    } else {
-                        WinMove(rule.x, rule.y, rule.w, rule.h, hwnd)
-                    }
-                    ProcessedWindows[hwnd] := true
-                    appliedCount++
-                }
-            }
+    for m in GetMatchingWindows() {
+        try {
+            ; Anwenden auch wenn bereits verarbeitet
+            if (m.rule.maximize)
+                WinMaximize(m.hwnd)
+            else
+                WinMove(m.rule.x, m.rule.y, m.rule.w, m.rule.h, m.hwnd)
+            ProcessedWindows[m.hwnd] := true
+            appliedCount++
         }
     }
 
@@ -793,18 +856,18 @@ ApplyAllRulesNow() {
 IsGuiVisible(guiVar) {
     if (!IsObject(guiVar))
         return false
-    try {
-        WinExist("ahk_id " guiVar.Hwnd)
-        return true
-    } catch {
+    ; WinExist liefert 0 wenn das Fenster fehlt; .Hwnd wirft bei zerstörtem Gui-Objekt
+    try
+        return WinExist("ahk_id " guiVar.Hwnd) != 0
+    catch
         return false
-    }
 }
 
 ; ============================================================
 ; Prüft ob ein Fenster-Handle zu einer Regel passt
 ; ============================================================
 MatchesRule(hwnd, matchValue, matchType) {
+    ; Fenster kann zwischen Auflistung und Abfrage verschwinden → Fehler bewusst ignorieren
     try {
         if (matchType = "class")
             return WinGetClass(hwnd) = matchValue
@@ -999,14 +1062,9 @@ SaveSettingsAndClose(*) {
     global HotkeyEnabled, HotkeyKey, AppName
     global ApplyRulesHotkeyEnabled, ApplyRulesHotkeyKey
     global TempCaptureHotkey, TempApplyRulesHotkey
-    global CaptureHotkeyTarget, CaptureHotkeyGui
 
     ; Laufende Capture abbrechen
-    StopHotkeyCapture()
-    if IsObject(CaptureHotkeyGui)
-        try CaptureHotkeyGui.Destroy()
-    CaptureHotkeyGui := ""
-    CaptureHotkeyTarget := ""
+    CancelHotkeyCapture()
 
     newKey := TempCaptureHotkey
     newEnabled := SettingsHotkeyChk.Value
@@ -1014,8 +1072,15 @@ SaveSettingsAndClose(*) {
     newApplyRulesEnabled := SettingsApplyRulesHotkeyChk.Value
     newAutostart := SettingsAutostartChk.Value
 
+    ; ^#Space ist für das StayOnTop-Feature reserviert
+    if ((newEnabled && newKey != "" && HotkeysEqual(newKey, "^#Space"))
+        || (newApplyRulesEnabled && newApplyRulesKey != "" && HotkeysEqual(newApplyRulesKey, "^#Space"))) {
+        MsgBox(L("Messages", "988"), L("Messages", "980"), "Icon! 4096")
+        return
+    }
+
     ; Prüfen ob beide Hotkeys gleich sind
-    if (newEnabled && newApplyRulesEnabled && newKey != "" && newApplyRulesKey != "" && newKey = newApplyRulesKey) {
+    if (newEnabled && newApplyRulesEnabled && newKey != "" && newApplyRulesKey != "" && HotkeysEqual(newKey, newApplyRulesKey)) {
         MsgBox(L("Messages", "986"), L("Messages", "980"), "Icon! 4096")
         return
     }
@@ -1052,14 +1117,10 @@ SaveSettingsAndClose(*) {
 
 ; ============================================================
 CloseSettings() {
-    global SettingsGui, CaptureHotkeyTarget, CaptureHotkeyGui
+    global SettingsGui
 
     ; Laufende Capture abbrechen
-    StopHotkeyCapture()
-    if IsObject(CaptureHotkeyGui)
-        try CaptureHotkeyGui.Destroy()
-    CaptureHotkeyGui := ""
-    CaptureHotkeyTarget := ""
+    CancelHotkeyCapture()
 
     SettingsGui.Destroy()
     SettingsGui := ""
@@ -1074,24 +1135,24 @@ LoadRules() {
     if (!FileExist(IniFile))
         return
     
-    ruleCount := IniRead(IniFile, "General", "RuleCount", "0")
-    ruleCount := Integer(ruleCount)
-    
+    ; Robust gegen beschädigte/manuell editierte INI (kein Start-Crash)
+    ruleCount := ToInt(IniRead(IniFile, "General", "RuleCount", "0"), 0)
+
     Loop ruleCount {
         section := "Rule" A_Index
-        
+
         match := IniRead(IniFile, section, "Match", "")
         if (match = "")
             continue
-        
+
         ruleName := IniRead(IniFile, section, "Name", "")
         matchType := IniRead(IniFile, section, "MatchType", "class")
         maximize := IniRead(IniFile, section, "Maximize", "0")
         enabled := IniRead(IniFile, section, "Enabled", "1")
-        x := Integer(IniRead(IniFile, section, "X", "0"))
-        y := Integer(IniRead(IniFile, section, "Y", "0"))
-        w := Integer(IniRead(IniFile, section, "W", "800"))
-        h := Integer(IniRead(IniFile, section, "H", "600"))
+        x := ToInt(IniRead(IniFile, section, "X", "0"), 0)
+        y := ToInt(IniRead(IniFile, section, "Y", "0"), 0)
+        w := ToInt(IniRead(IniFile, section, "W", "800"), 800)
+        h := ToInt(IniRead(IniFile, section, "H", "600"), 600)
         
         WindowRules.Push({
             name: ruleName,
@@ -1149,6 +1210,7 @@ GetRuleDisplayName(rule) {
 ; ============================================================
 TrackActiveWindow() {
     global LastActiveWindow
+    ; Kein/flüchtiges aktives Fenster → Fehler bewusst ignorieren
     try {
         hwnd := WinGetID("A")
         if (hwnd) {
@@ -1392,9 +1454,9 @@ EditRule(rule) {
     MyMaximizeChk.OnEvent("Click", OnMaximizeToggle)
     
     lblX := MyGui.Add("Text", "x20 yp+25 +0x100", "X:")
-    MyEdX := MyGui.Add("Edit", "x38 yp-3 w50 Number", rule.x)
+    MyEdX := MyGui.Add("Edit", "x38 yp-3 w50 Limit6", rule.x)   ; kein Number-Style: negative X/Y erlaubt
     lblY := MyGui.Add("Text", "x95 yp+3 +0x100", "Y:")
-    MyEdY := MyGui.Add("Edit", "x113 yp-3 w50 Number", rule.y)
+    MyEdY := MyGui.Add("Edit", "x113 yp-3 w50 Limit6", rule.y)
     lblW := MyGui.Add("Text", "x170 yp+3 +0x100", "W:")
     MyEdW := MyGui.Add("Edit", "x188 yp-3 w50 Number", rule.w)
     lblH := MyGui.Add("Text", "x245 yp+3 +0x100", "H:")
@@ -1456,49 +1518,42 @@ DoTestEditedRule(*) {
         return
     }
     
-    try {
-        if (MyMaximizeChk.Value) {
-            WinMaximize("ahk_id " CaptureHwnd)
-        } else {
-            WinMove(Integer(MyEdX.Value), Integer(MyEdY.Value),
-                    Integer(MyEdW.Value), Integer(MyEdH.Value), "ahk_id " CaptureHwnd)
-        }
+    if (MyMaximizeChk.Value) {
+        try WinMaximize("ahk_id " CaptureHwnd)
+        return
     }
+
+    ; Zielwerte validieren (zeigt Meldung bei leerem/ungültigem Feld)
+    tx := 0, ty := 0, tw := 0, th := 0
+    if (!ValidateRuleInput(false, &tx, &ty, &tw, &th))
+        return
+
+    try WinMove(tx, ty, tw, th, "ahk_id " CaptureHwnd)
 }
 
 ; ============================================================
 DoSaveEditedRule(*) {
-    global WindowRules, ProcessedWindows, EditingRuleIndex, AppName
+    global WindowRules, EditingRuleIndex, AppName
     global MyGui, MyEdX, MyEdY, MyEdW, MyEdH, MyMaximizeChk, MyRuleName, MyEnabledChk
-    global CameFromRulesManager
-    
+
     if (EditingRuleIndex = 0 || EditingRuleIndex > WindowRules.Length) {
-        MsgBox(L("Messages", "995"), L("Messages", "995"), "Icon! 4096")
+        MsgBox(L("Messages", "989"), L("Messages", "995"), "Icon! 4096")
         MyGui.Destroy()
         MyGui := ""
-        if (CameFromRulesManager) {
-            CameFromRulesManager := false
-            ShowRulesManager()
-        }
-        SetTimer(CheckWindows, 500)
+        ReturnToManagerOrResume()
         return
     }
-    
+
     rule := WindowRules[EditingRuleIndex]
-    
+
     ruleName := MyRuleName.Value
-    targetX := Integer(MyEdX.Value)
-    targetY := Integer(MyEdY.Value)
-    targetW := Integer(MyEdW.Value)
-    targetH := Integer(MyEdH.Value)
     doMaximize := MyMaximizeChk.Value
     isEnabled := MyEnabledChk.Value
 
-    ; W/H-Validierung (nur wenn nicht maximiert)
-    if (!doMaximize && (targetW <= 0 || targetH <= 0)) {
-        MsgBox(L("Messages", "987"), L("Messages", "980"), "Icon! 4096")
+    ; Zielwerte validieren (leere/ungültige Felder abfangen)
+    targetX := 0, targetY := 0, targetW := 0, targetH := 0
+    if (!ValidateRuleInput(doMaximize, &targetX, &targetY, &targetW, &targetH))
         return
-    }
 
     WindowRules[EditingRuleIndex] := {
         name: ruleName,
@@ -1522,24 +1577,16 @@ DoSaveEditedRule(*) {
     MyGui := ""
     TrayTip(AppName, L("Messages", "925") " " displayName, 1)
     
-    if (CameFromRulesManager) {
-        CameFromRulesManager := false
-        ShowRulesManager()
-    }
-    SetTimer(CheckWindows, 500)
+    ReturnToManagerOrResume()
 }
 
 ; ============================================================
 DoCancelToManager(*) {
-    global MyGui, EditingRuleIndex, CameFromRulesManager
+    global MyGui, EditingRuleIndex
     EditingRuleIndex := 0
     MyGui.Destroy()
     MyGui := ""
-    if (CameFromRulesManager) {
-        CameFromRulesManager := false
-        ShowRulesManager()
-    }
-    SetTimer(CheckWindows, 500)
+    ReturnToManagerOrResume()
 }
 
 ; ============================================================
@@ -1603,14 +1650,10 @@ ShowWindowPicker(*) {
 
 ; ============================================================
 ClosePickerGui() {
-    global WindowPickerGui, CameFromRulesManager
+    global WindowPickerGui
     WindowPickerGui.Destroy()
     WindowPickerGui := ""
-    if (CameFromRulesManager) {
-        CameFromRulesManager := false
-        ShowRulesManager()
-    }
-    SetTimer(CheckWindows, 500)
+    ReturnToManagerOrResume()
 }
 
 ; ============================================================
@@ -1670,19 +1713,22 @@ CaptureSpecificWindow(hwnd) {
     
     if (!WinExist("ahk_id " hwnd)) {
         MsgBox(L("Messages", "955"), L("Messages", "995"), "Icon! 4096")
-        if (CameFromRulesManager) {
-            CameFromRulesManager := false
-            ShowRulesManager()
-        }
-        SetTimer(CheckWindows, 500)
+        ReturnToManagerOrResume()
         return
     }
-    
-    title := WinGetTitle("ahk_id " hwnd)
-    wclass := WinGetClass("ahk_id " hwnd)
-    WinGetPos(&curX, &curY, &curW, &curH, "ahk_id " hwnd)
-    pid := WinGetPID("ahk_id " hwnd)
-    processName := ProcessGetName(pid)
+
+    ; Fensterdaten auslesen – Fenster kann zwischen Prüfung und Zugriff verschwinden
+    try {
+        title := WinGetTitle("ahk_id " hwnd)
+        wclass := WinGetClass("ahk_id " hwnd)
+        WinGetPos(&curX, &curY, &curW, &curH, "ahk_id " hwnd)
+        pid := WinGetPID("ahk_id " hwnd)
+        processName := ProcessGetName(pid)
+    } catch {
+        MsgBox(L("Messages", "955"), L("Messages", "995"), "Icon! 4096")
+        ReturnToManagerOrResume()
+        return
+    }
     
     CaptureHwnd := hwnd
     CaptureClass := wclass
@@ -1718,9 +1764,9 @@ CaptureSpecificWindow(hwnd) {
     MyMaximizeChk.OnEvent("Click", OnMaximizeToggle)
     
     lblX := MyGui.Add("Text", "x20 yp+25 +0x100", "X:")
-    MyEdX := MyGui.Add("Edit", "x38 yp-3 w50 Number", curX)
+    MyEdX := MyGui.Add("Edit", "x38 yp-3 w50 Limit6", curX)   ; kein Number-Style: negative X/Y erlaubt
     lblY := MyGui.Add("Text", "x95 yp+3 +0x100", "Y:")
-    MyEdY := MyGui.Add("Edit", "x113 yp-3 w50 Number", curY)
+    MyEdY := MyGui.Add("Edit", "x113 yp-3 w50 Limit6", curY)
     lblW := MyGui.Add("Text", "x170 yp+3 +0x100", "W:")
     MyEdW := MyGui.Add("Edit", "x188 yp-3 w50 Number", curW)
     lblH := MyGui.Add("Text", "x245 yp+3 +0x100", "H:")
@@ -1764,21 +1810,16 @@ DoAddRule(*) {
     global CameFromRulesManager
     
     ruleName := MyRuleName.Value
-    targetX := Integer(MyEdX.Value)
-    targetY := Integer(MyEdY.Value)
-    targetW := Integer(MyEdW.Value)
-    targetH := Integer(MyEdH.Value)
     matchChoice := MyMatchDDL.Text
     doMaximize := MyMaximizeChk.Value
-    
+
     matchType := (matchChoice = L("CaptureWindow", "550")) ? "class" : "title"
     matchValue := (matchType = "class") ? CaptureClass : CaptureTitle
 
-    ; W/H-Validierung (nur wenn nicht maximiert)
-    if (!doMaximize && (targetW <= 0 || targetH <= 0)) {
-        MsgBox(L("Messages", "987"), L("Messages", "980"), "Icon! 4096")
+    ; Zielwerte validieren (leere/ungültige Felder abfangen)
+    targetX := 0, targetY := 0, targetW := 0, targetH := 0
+    if (!ValidateRuleInput(doMaximize, &targetX, &targetY, &targetW, &targetH))
         return
-    }
 
     existingIndex := 0
     for i, rule in WindowRules {
@@ -1822,11 +1863,7 @@ DoAddRule(*) {
     MyGui := ""
     TrayTip(AppName, L("Messages", msgKey) " " displayName, 1)
     
-    if (CameFromRulesManager) {
-        CameFromRulesManager := false
-        ShowRulesManager()
-    }
-    SetTimer(CheckWindows, 500)
+    ReturnToManagerOrResume()
 }
 
 ; ============================================================
@@ -1845,8 +1882,44 @@ ResetProcessedForMatch(matchValue, matchType) {
 }
 
 ; ============================================================
+; Liefert alle (hwnd, rule)-Paare passender Fenster.
+; Klasse/Titel werden pro Fenster nur einmal gelesen → ≤2×M Win*-Aufrufe statt N×M.
+; ============================================================
+GetMatchingWindows() {
+    global WindowRules
+
+    matches := []
+    for hwnd in WinGetList() {
+        wclass := "", wtitle := "", haveClass := false, haveTitle := false
+        for rule in WindowRules {
+            if (!rule.enabled)
+                continue
+            matched := false
+            try {
+                if (rule.matchType = "class") {
+                    if (!haveClass) {
+                        wclass := WinGetClass(hwnd)
+                        haveClass := true
+                    }
+                    matched := (wclass = rule.match)
+                } else {
+                    if (!haveTitle) {
+                        wtitle := WinGetTitle(hwnd)
+                        haveTitle := true
+                    }
+                    matched := (wtitle != "" && InStr(wtitle, rule.match))
+                }
+            }
+            if (matched)
+                matches.Push({hwnd: hwnd, rule: rule})
+        }
+    }
+    return matches
+}
+
+; ============================================================
 CheckWindows() {
-    global WindowRules, ProcessedWindows, GlobalPaused
+    global ProcessedWindows, GlobalPaused, AppName
 
     if (GlobalPaused)
         return
@@ -1864,35 +1937,36 @@ CheckWindows() {
             ProcessedWindows.Delete(hwnd)
     }
 
-    allWindows := WinGetList()
-
-    for rule in WindowRules {
-        if (!rule.enabled)
-            continue
-
-        for hwnd in allWindows {
-            if (MatchesRule(hwnd, rule.match, rule.matchType))
-                ApplyRule(hwnd, rule)
-        }
+    appliedCount := 0
+    for m in GetMatchingWindows() {
+        if (ApplyRule(m.hwnd, m.rule))
+            appliedCount++
     }
+
+    ; Ein Sammel-TrayTip pro Tick statt einer Meldung pro Fenster
+    if (appliedCount > 0)
+        TrayTip(AppName, L("Messages", "946") " " appliedCount, 1)
 }
 
 ; ============================================================
 ApplyRule(hwnd, rule) {
-    global ProcessedWindows, AppName
-    
+    global ProcessedWindows
+
     if (ProcessedWindows.Has(hwnd))
-        return
-    
+        return false
+
     try {
-        if (rule.maximize) {
+        if (rule.maximize)
             WinMaximize(hwnd)
-        } else {
+        else
             WinMove(rule.x, rule.y, rule.w, rule.h, hwnd)
-        }
         ProcessedWindows[hwnd] := true
-        displayName := GetRuleDisplayName(rule)
-        TrayTip(AppName, L("Messages", "945") " " displayName, 1)
+        return true
+    } catch {
+        ; Dauerhaft nicht verschiebbares Fenster (z.B. erhöhter Prozess):
+        ; markieren, damit es nicht alle 500 ms erneut erfolglos versucht wird.
+        ProcessedWindows[hwnd] := true
+        return false
     }
 }
 
@@ -1904,6 +1978,7 @@ global StayOnTopSplash := ""
 ToggleStayOnTop(*) {
     global StayOnTopSplash
 
+    ; Kein aktives Fenster / Zugriff verweigert → Fehler bewusst ignorieren
     try {
         hwnd := WinGetID("A")
         if (!hwnd)
