@@ -5,11 +5,11 @@ FileEncoding "UTF-8"
 
 ; ============================================================
 ; AutoReSizer - Window Size/Position Manager
-; Version: 1.5.9
+; Version: 1.6.0
 ; ============================================================
 
 global AppName := "AutoReSizer"
-global AppVersion := "1.5.9"
+global AppVersion := "1.6.0"
 global AppAuthor := "HJS"
 global AppGitLab := "https://gitlab.com/HJS-cpu/autoresizer"
 global AppEmail := "autoresizer@gmx.com"
