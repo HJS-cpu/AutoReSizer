@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: AutoHotkey v2 + Ahk2Exe herunterladen
         shell: pwsh
@@ -48,14 +48,14 @@ jobs:
           Compress-Archive -Path "AutoReSizer\*" -DestinationPath "AutoReSizer.zip" -Force
 
       - name: Artifact hochladen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AutoReSizer
           path: AutoReSizer.zip
 
       - name: GitHub-Release erstellen (nur bei Tag)
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: AutoReSizer ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
