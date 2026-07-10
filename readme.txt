@@ -18,14 +18,14 @@
 - Compact Design: Sleek, modern user interface
 
 
-Current Version: v1.5.9
+Current Version: v1.6.0
 
 Version history:
 
-Version 1.5.9
-+ Freely configurable hotkeys: Full key combinations can now be chosen
-+ Hotkey capture dialog for intuitive key assignment
-+ Code optimizations and bug fixes
+Version 1.6.0
++ Fixed crashes on empty position/size fields and on corrupted INI files
++ Performance: faster background scan, reduced polling, single summary notification per cycle
++ Negative X/Y coordinates for multi-monitor setups plus various robustness fixes
 
 Version 1.5.8
 + Fixed tray icon ghosting after exit
