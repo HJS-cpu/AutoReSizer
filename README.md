@@ -78,11 +78,16 @@ AutoReSizer/
 
 ## Changelog
 
-### Version 1.5.9
-- **Freely configurable hotkeys:** Full key combinations can now be chosen (no longer limited to Ctrl+Win+letter)
-- Hotkey capture dialog: Press any key combination to assign it
-- Code optimizations: Centralized match logic, fixed INI cleanup, ProcessedWindows memory leak fix
-- Width/height validation for window rules
+### Version 1.6.0
+- Fixed a crash when a position/size field (X/Y/W/H) was left empty in the rule dialogs
+- Configurable hotkeys can no longer silently override the built-in **Stay on Top** hotkey (`Ctrl+Win+Space`)
+- More robust against corrupted or manually edited INI files (no more start-up crash)
+- Stopped silent endless retries on windows that cannot be moved (e.g. elevated processes)
+- **Performance:** window class/title is now read once per window, reduced active-window polling, single summary notification per cycle
+- X/Y fields now accept negative coordinates (multi-monitor setups)
+- Fixed an icon-handle leak when opening dialogs repeatedly
+- Hardened window capture against windows closing mid-action
+- Internal refactoring, reduced code duplication, and additional localized strings
 
 ### Version 1.5.8
 - Fixed tray icon ghosting after exit
