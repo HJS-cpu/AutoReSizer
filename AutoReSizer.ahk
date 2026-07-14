@@ -5,11 +5,11 @@ FileEncoding "UTF-8"
 
 ; ============================================================
 ; AutoReSizer - Window Size/Position Manager
-; Version: 1.6.0
+; Version: 1.6.1
 ; ============================================================
 
 global AppName := "AutoReSizer"
-global AppVersion := "1.6.0"
+global AppVersion := "1.6.1"
 global AppAuthor := "HJS"
 global AppGitHub := "https://github.com/HJS-cpu/AutoReSizer"
 global AppEmail := "autoresizer@gmx.com"
@@ -77,6 +77,7 @@ global LangStrings := Map()
 
 ; ToolTip-Handling
 global ToolTipControls := Map()
+global HoverToolTipHwnd := 0   ; Control, dessen Hover-ToolTip gerade angezeigt wird
 OnMessage(0x200, OnMouseMove)  ; WM_MOUSEMOVE
 
 global IniFile := A_ScriptDir "\AutoReSizer.ini"
@@ -85,9 +86,18 @@ global IconDll := A_ScriptDir "\AutoReSizer.dll"
 ; Tray-Icon vor Beenden verstecken (verhindert Ghosting im Systray)
 OnExit((*) => (A_IconHidden := true, 0))
 
+; INI als UTF-16 sicherstellen (sonst zerstört IniWrite Unicode-Zeichen still)
+EnsureIniUnicode()
+
 ; Sprache zuerst laden
 LoadLanguageSetting()
 if (CurrentLanguage = "" || !FileExist(A_ScriptDir "\" CurrentLanguage ".lng")) {
+    ; Übergangsweise Englisch laden, damit Tray-Menü/TrayTips keine
+    ; "???"-Platzhalter zeigen, solange die Erststart-Sprachauswahl noch offen ist
+    if (FileExist(A_ScriptDir "\English.lng")) {
+        LoadLanguageFile("English")
+        CurrentLanguage := ""  ; echte Wahl steht noch aus
+    }
     ShowLanguageSelect(true)
 } else {
     LoadLanguageFile(CurrentLanguage)
@@ -105,7 +115,7 @@ UpdateTrayIcon()
 BuildTrayMenu()
 
 SetTimer(CheckWindows, 500)
-SetTimer(TrackActiveWindow, 1000)  ; Last-Active nur als Fallback im Capture-Pfad – 1 Hz genügt
+; TrackActiveWindow wird von RegisterHotkey() nur bei aktivem Capture-Hotkey gestartet
 
 ; ============================================================
 ; GUI-Icon aus DLL setzen
@@ -113,15 +123,18 @@ SetTimer(TrackActiveWindow, 1000)  ; Last-Active nur als Fallback im Capture-Pfa
 SetGuiIcon(guiObj, iconFile, iconNum) {
     ; Icons werden einmalig geladen und gecacht (verhindert HICON-Leak bei
     ; wiederholtem Dialog-Öffnen; die Handles leben bewusst bis Programmende).
+    ; Fehlende/defekte DLL ist nicht fatal – der Dialog erscheint dann ohne Icon.
     static iconCache := Map()
-    keyBig := iconNum "_32"
-    keySmall := iconNum "_16"
-    if (!iconCache.Has(keyBig))
-        iconCache[keyBig] := LoadPicture(iconFile, "Icon" iconNum " w32", &imgType)
-    if (!iconCache.Has(keySmall))
-        iconCache[keySmall] := LoadPicture(iconFile, "Icon" iconNum " w16", &imgType)
-    SendMessage(0x80, 1, iconCache[keyBig], , guiObj.Hwnd)    ; WM_SETICON, ICON_BIG
-    SendMessage(0x80, 0, iconCache[keySmall], , guiObj.Hwnd)  ; WM_SETICON, ICON_SMALL
+    try {
+        keyBig := iconNum "_32"
+        keySmall := iconNum "_16"
+        if (!iconCache.Has(keyBig))
+            iconCache[keyBig] := LoadPicture(iconFile, "Icon" iconNum " w32", &imgType)
+        if (!iconCache.Has(keySmall))
+            iconCache[keySmall] := LoadPicture(iconFile, "Icon" iconNum " w16", &imgType)
+        SendMessage(0x80, 1, iconCache[keyBig], , guiObj.Hwnd)    ; WM_SETICON, ICON_BIG
+        SendMessage(0x80, 0, iconCache[keySmall], , guiObj.Hwnd)  ; WM_SETICON, ICON_SMALL
+    }
 }
 
 ; ============================================================
@@ -147,6 +160,32 @@ NormalizeHotkey(hk) {
 ; Wandelt einen String robust in eine Ganzzahl; bei ungültigem Wert den Default
 ToInt(value, default) {
     return RegExMatch(value, "^-?\d+$") ? Integer(value) : default
+}
+
+; Stellt sicher, dass die INI-Datei als UTF-16 (mit BOM) vorliegt.
+; WritePrivateProfileString schreibt sonst ANSI und ersetzt Zeichen außerhalb
+; der Systemcodepage (z. B. in erfassten Fenstertiteln) still durch "?".
+EnsureIniUnicode() {
+    global IniFile
+    try {
+        if (!FileExist(IniFile)) {
+            FileAppend("", IniFile, "UTF-16")  ; leere Datei mit UTF-16-BOM anlegen
+            return
+        }
+        ; BOM anhand der Rohbytes prüfen (unabhängig von FileEncoding)
+        buf := FileRead(IniFile, "RAW")
+        if (buf.Size >= 2 && NumGet(buf, 0, "UChar") = 0xFF && NumGet(buf, 1, "UChar") = 0xFE)
+            return  ; bereits UTF-16 LE
+        hasUtf8Bom := (buf.Size >= 3 && NumGet(buf, 0, "UChar") = 0xEF
+            && NumGet(buf, 1, "UChar") = 0xBB && NumGet(buf, 2, "UChar") = 0xBF)
+        ; Bestands-INI einmalig konvertieren (ohne BOM: ANSI/Systemcodepage annehmen)
+        content := hasUtf8Bom ? FileRead(IniFile) : FileRead(IniFile, "CP0")
+        tmpFile := IniFile ".tmp"
+        try FileDelete(tmpFile)
+        FileAppend(content, tmpFile, "UTF-16")
+        FileMove(tmpFile, IniFile, 1)
+    }
+    ; Fehler sind hier nicht fatal – schlimmstenfalls bleibt die INI im Altformat
 }
 
 ; Liest/validiert die Zielwerte aus den Edit-Feldern.
@@ -178,14 +217,15 @@ ValidateRuleInput(doMaximize, &tx, &ty, &tw, &th) {
     return true
 }
 
-; Dialog-Teardown: ggf. zurück zum Regel-Manager und CheckWindows-Timer reaktivieren
+; Dialog-Teardown: ggf. zurück zum Regel-Manager, sonst CheckWindows-Timer reaktivieren
 ReturnToManagerOrResume() {
     global CameFromRulesManager
     if (CameFromRulesManager) {
         CameFromRulesManager := false
-        ShowRulesManager()
+        ShowRulesManager()  ; hält den CheckWindows-Timer an, solange der Manager offen ist
+    } else {
+        SetTimer(CheckWindows, 500)
     }
-    SetTimer(CheckWindows, 500)
 }
 
 ; Bricht eine laufende Hotkey-Erfassung ab und räumt deren GUI auf
@@ -238,6 +278,7 @@ GetPressedKey() {
 
 ; ============================================================
 GetKeyDisplayName(key) {
+    ; Hinweis: Die Anzeigenamen der Symboltasten (SC0xx) entsprechen dem deutschen Tastaturlayout
     static names := Map(
         "Space", "Space",
         "SC029", "^ (Circumflex)",
@@ -368,6 +409,15 @@ CheckHotkeyCaptureInput() {
     if (key = "")
         return
 
+    ; Ohne Modifier würde die blanke Taste systemweit belegt (z. B. "A" oder Space)
+    ; → nur mit Strg/Alt/Shift/Win zulassen; F-Tasten sind auch allein üblich/gefahrlos
+    if (!ctrl && !alt && !shift && !win && !RegExMatch(key, "^F([1-9]|1[0-2])$")) {
+        hint := L("Settings", "319")
+        if (IsObject(CaptureHotkeyDisplayCtrl) && CaptureHotkeyDisplayCtrl.Text != hint)
+            CaptureHotkeyDisplayCtrl.Text := hint
+        return
+    }
+
     hkString := ""
     if ctrl
         hkString .= "^"
@@ -404,25 +454,32 @@ CheckHotkeyCaptureInput() {
 ; ToolTip bei Mouse-Hover über Controls
 ; ============================================================
 OnMouseMove(wParam, lParam, msg, hwnd) {
-    global ToolTipControls
-    static lastHwnd := 0
+    global ToolTipControls, HoverToolTipHwnd
     static lastTime := 0
-    
+
     if (A_TickCount - lastTime < 100)
         return
     lastTime := A_TickCount
-    
+
     if (ToolTipControls.Has(hwnd)) {
-        if (lastHwnd != hwnd) {
+        if (HoverToolTipHwnd != hwnd) {
             ToolTip(ToolTipControls[hwnd])
-            lastHwnd := hwnd
+            HoverToolTipHwnd := hwnd
         }
-    } else {
-        if (lastHwnd != 0) {
-            ToolTip()
-            lastHwnd := 0
-        }
+        ; Auto-Hide: verlässt die Maus das Fenster, kommt kein WM_MOUSEMOVE mehr an –
+        ; ohne Timeout bliebe der ToolTip dauerhaft stehen
+        SetTimer(HideHoverToolTip, -3000)
+    } else if (HoverToolTipHwnd != 0) {
+        HideHoverToolTip()
     }
+}
+
+; ============================================================
+HideHoverToolTip() {
+    global HoverToolTipHwnd
+    ToolTip()
+    HoverToolTipHwnd := 0
+    SetTimer(HideHoverToolTip, 0)  ; evtl. noch anstehenden Auto-Hide-Timer stoppen
 }
 
 ; ============================================================
@@ -520,8 +577,14 @@ ShowLanguageSelect(isFirstRun := false) {
     languages := GetAvailableLanguages()
     
     if (languages.Length = 0) {
-        MsgBox("No language files (.lng) found!", "Error", "Icon! 4096")
-        ExitApp()
+        ; Nur beim Erststart fatal – aus den Einstellungen heraus läuft die
+        ; bereits geladene Sprache einfach weiter
+        if (isFirstRun) {
+            MsgBox("No language files (.lng) found!", "Error", "Icon! 4096")
+            ExitApp()
+        }
+        MsgBox(L("Messages", "990"), L("Messages", "995"), "Icon! 4096")
+        return
     }
     
     if (isFirstRun) {
@@ -586,7 +649,7 @@ ApplyLanguageSelection(languages, isFirstRun) {
     UpdateTrayIcon()
     
     if (!isFirstRun) {
-        TrayTip(AppName, L("Messages", "906"), 1)
+        TrayTip(L("Messages", "906"), AppName, 1)
     }
 }
 
@@ -607,19 +670,19 @@ BuildTrayMenu() {
     ; --- About ---
     aboutItem := AppName " v" AppVersion
     TrayMenu.Add(aboutItem, ShowAbout)
-    TrayMenu.SetIcon(aboutItem, IconDll, 1, 16)
+    try TrayMenu.SetIcon(aboutItem, IconDll, 1, 16)
 
     TrayMenu.Add()
 
     ; --- Regeln ---
     itemRules := L("General", "100")
     TrayMenu.Add(itemRules, ShowRulesManager)
-    TrayMenu.SetIcon(itemRules, IconDll, 6, 16)
+    try TrayMenu.SetIcon(itemRules, IconDll, 6, 16)
 
     ; --- Fenster erfassen ---
     itemWindowPicker := L("General", "105")
     TrayMenu.Add(itemWindowPicker, ShowWindowPicker)
-    TrayMenu.SetIcon(itemWindowPicker, IconDll, 5, 16)
+    try TrayMenu.SetIcon(itemWindowPicker, IconDll, 5, 16)
 
     TrayMenu.Add()
 
@@ -627,7 +690,7 @@ BuildTrayMenu() {
     global CurrentPauseMenuItem
     itemPause := L("General", "110")
     TrayMenu.Add(itemPause, ToggleGlobalPause)
-    TrayMenu.SetIcon(itemPause, IconDll, 4, 16)
+    try TrayMenu.SetIcon(itemPause, IconDll, 4, 16)
     CurrentPauseMenuItem := itemPause
 
     TrayMenu.Add()
@@ -635,14 +698,14 @@ BuildTrayMenu() {
     ; --- Einstellungen ---
     itemSettings := L("General", "115")
     TrayMenu.Add(itemSettings, ShowSettings)
-    TrayMenu.SetIcon(itemSettings, IconDll, 2, 16)
+    try TrayMenu.SetIcon(itemSettings, IconDll, 2, 16)
 
     TrayMenu.Add()
 
     ; --- Beenden ---
     itemExit := L("General", "120")
     TrayMenu.Add(itemExit, (*) => ExitApp())
-    TrayMenu.SetIcon(itemExit, IconDll, 3, 16)
+    try TrayMenu.SetIcon(itemExit, IconDll, 3, 16)
 
     A_TrayMenu.Default := L("General", "100")
     UpdatePauseMenu()
@@ -672,12 +735,12 @@ ShowAbout(*) {
     AboutGui.Add("Text", "x10 h10", "")
     
     AboutGui.SetFont("s9 bold cBlack")
-    AboutGui.Add("Text", "x20 w45", "WWW:")
+    AboutGui.Add("Text", "x20 w45", L("About", "215"))
     AboutGui.SetFont("s9 bold")
     AboutGui.Add("Link", "x70 yp -TabStop", '<a href="' AppGitHub '">' AppGitHub '</a>')
     
     AboutGui.SetFont("s9 bold cBlack")
-    AboutGui.Add("Text", "x20 w45", "E-Mail:")
+    AboutGui.Add("Text", "x20 w45", L("About", "220"))
     AboutGui.SetFont("s9 bold")
     AboutGui.Add("Link", "x70 yp -TabStop", '<a href="mailto:' AppEmail '">' AppEmail '</a>')
     
@@ -752,7 +815,8 @@ SetAutostart(enable) {
     
     if (enable) {
         try {
-            RegWrite(A_ScriptFullPath, "REG_SZ", AutostartRegKey, AppName)
+            ; Pfad in Anführungszeichen (Leerzeichen im Installationspfad)
+            RegWrite('"' A_ScriptFullPath '"', "REG_SZ", AutostartRegKey, AppName)
             AutostartEnabled := true
             return true
         } catch as err {
@@ -812,6 +876,10 @@ RegisterHotkey() {
         }
     }
 
+    ; LastActiveWindow wird nur vom Capture-Hotkey als Fallback gebraucht
+    ; → Polling-Timer nur laufen lassen, wenn der Hotkey registriert ist
+    SetTimer(TrackActiveWindow, (CurrentHotkey != "") ? 1000 : 0)
+
     UpdateTrayIcon()
 }
 
@@ -833,23 +901,30 @@ ApplyAllRulesNow() {
         return
 
     appliedCount := 0
+    doneHwnds := Map()  ; pro Fenster nur die erste passende Regel (wie CheckWindows)
 
     for m in GetMatchingWindows() {
+        if (doneHwnds.Has(m.hwnd))
+            continue
+        doneHwnds[m.hwnd] := true
+        ; Klasse als Map-Wert merken – erkennt später recycelte Handles (Cleanup)
+        wclass := ""
+        try wclass := WinGetClass(m.hwnd)
         try {
             ; Anwenden auch wenn bereits verarbeitet
             if (m.rule.maximize)
                 WinMaximize(m.hwnd)
             else
                 WinMove(m.rule.x, m.rule.y, m.rule.w, m.rule.h, m.hwnd)
-            ProcessedWindows[m.hwnd] := true
+            ProcessedWindows[m.hwnd] := wclass
             appliedCount++
         }
     }
 
     if (appliedCount > 0)
-        TrayTip(AppName, L("Messages", "946") " " appliedCount, 1)
+        TrayTip(L("Messages", "946") " " appliedCount, AppName, 1)
     else
-        TrayTip(AppName, L("Messages", "947"), 1)
+        TrayTip(L("Messages", "947"), AppName, 1)
 }
 
 ; ============================================================
@@ -882,6 +957,10 @@ MatchesRule(hwnd, matchValue, matchType) {
 ; ============================================================
 CloseAllDialogs() {
     global MyGui, RulesManagerGui, WindowPickerGui, SettingsGui, AboutGui, LanguageGui
+
+    ; Auch eine laufende Hotkey-Aufnahme beenden (Overlay + 50-ms-Timer),
+    ; sonst schreibt deren Timer gleich auf zerstörte Settings-Controls
+    CancelHotkeyCapture()
 
     try {
         if (IsGuiVisible(MyGui))
@@ -925,10 +1004,10 @@ ToggleGlobalPause(*) {
     UpdatePauseMenu()
     
     if (GlobalPaused) {
-        TrayTip(AppName, L("Messages", "900"), 1)
+        TrayTip(L("Messages", "900"), AppName, 1)
     } else {
         global ProcessedWindows := Map()
-        TrayTip(AppName, L("Messages", "905"), 1)
+        TrayTip(L("Messages", "905"), AppName, 1)
     }
 }
 
@@ -946,20 +1025,20 @@ UpdatePauseMenu() {
 
     if (CurrentPauseMenuItem != newItem) {
         A_TrayMenu.Rename(CurrentPauseMenuItem, newItem)
-        A_TrayMenu.SetIcon(newItem, IconDll, iconNum, 16)
+        try A_TrayMenu.SetIcon(newItem, IconDll, iconNum, 16)
         CurrentPauseMenuItem := newItem
     }
 }
 
 ; ============================================================
 UpdateTrayIcon() {
-    global GlobalPaused, HotkeyEnabled, HotkeyKey, AppName
+    global GlobalPaused, AppName
 
     if (GlobalPaused) {
-        TraySetIcon(IconDll, 4)
+        try TraySetIcon(IconDll, 4)
         A_IconTip := AppName " - " L("General", "130")
     } else {
-        TraySetIcon(IconDll, 8)
+        try TraySetIcon(IconDll, 8)
         A_IconTip := AppName " - " L("General", "125")
     }
 }
@@ -1036,6 +1115,10 @@ ShowSettings(*) {
 ; ============================================================
 OpenLanguageFromSettings() {
     global SettingsGui
+
+    ; Laufende Hotkey-Aufnahme abbrechen (ihr Timer schreibt sonst auf zerstörte Controls)
+    CancelHotkeyCapture()
+
     SettingsGui.Destroy()
     SettingsGui := ""
     ShowLanguageSelect(false)
@@ -1111,7 +1194,7 @@ SaveSettingsAndClose(*) {
                 tipText .= "`n"
             tipText .= msg
         }
-        TrayTip(AppName, tipText, 1)
+        TrayTip(tipText, AppName, 1)
     }
 }
 
@@ -1254,7 +1337,7 @@ ShowRulesManager(*) {
         L("RulesManager", "435"),
         "X", "Y", "W", "H"
     ])
-    RulesListView.OnEvent("DoubleClick", EditRuleFromList)
+    RulesListView.OnEvent("DoubleClick", (LV, row) => EditRuleByRow(row))
     RulesListView.OnEvent("ItemSelect", OnRuleSelect)
     
     RulesListView.ModifyCol(1, "40 Center")
@@ -1356,10 +1439,8 @@ ToggleRuleFromList(ctrl, *) {
         return
     
     rule := WindowRules[row]
-    
-    rule.enabled := !rule.enabled
-    WindowRules[row] := rule
-    
+    rule.enabled := !rule.enabled  ; Objektreferenz – wirkt direkt im Array
+
     SaveRules()
     
     activeText := rule.enabled ? "✓" : "✗"
@@ -1370,20 +1451,27 @@ ToggleRuleFromList(ctrl, *) {
     
     msgKey := rule.enabled ? "935" : "940"
     displayName := GetRuleDisplayName(rule)
-    TrayTip(AppName, L("Messages", msgKey) " " displayName, 1)
+    TrayTip(L("Messages", msgKey) " " displayName, AppName, 1)
 }
 
 ; ============================================================
 EditRuleFromList(ctrl, *) {
-    global WindowRules, EditingRuleIndex, RulesManagerGui, RulesListView, CameFromRulesManager
-    
-    row := RulesListView.GetNext(0, "Focused")
+    global RulesListView
+    EditRuleByRow(RulesListView.GetNext(0, "Focused"))
+}
+
+; ============================================================
+; row stammt vom Doppelklick-Event bzw. der fokussierten Zeile;
+; 0 = Klick auf Leerraum → nichts tun
+EditRuleByRow(row) {
+    global WindowRules, EditingRuleIndex, RulesManagerGui, CameFromRulesManager
+
     if (row = 0 || row > WindowRules.Length)
         return
-    
+
     EditingRuleIndex := row
     rule := WindowRules[row]
-    
+
     CameFromRulesManager := true
     RulesManagerGui.Destroy()
     RulesManagerGui := ""
@@ -1412,7 +1500,7 @@ DeleteRuleFromList(ctrl, *) {
     
     UpdateRuleButtons(false)
     
-    TrayTip(AppName, L("Messages", "930") " " displayName, 1)
+    TrayTip(L("Messages", "930") " " displayName, AppName, 1)
 }
 
 ; ============================================================
@@ -1575,7 +1663,7 @@ DoSaveEditedRule(*) {
     EditingRuleIndex := 0
     MyGui.Destroy()
     MyGui := ""
-    TrayTip(AppName, L("Messages", "925") " " displayName, 1)
+    TrayTip(L("Messages", "925") " " displayName, AppName, 1)
     
     ReturnToManagerOrResume()
 }
@@ -1630,7 +1718,7 @@ ShowWindowPicker(*) {
     WindowPickerGui.Add("Text", , L("WindowPicker", "705"))
     
     LV := WindowPickerGui.Add("ListView", "w400 h200 vWindowLV", [L("WindowPicker", "710"), L("WindowPicker", "715")])
-    LV.OnEvent("DoubleClick", SelectFromList)
+    LV.OnEvent("DoubleClick", (LV, row) => SelectPickerRow(row))
     
     for win in windowList
         LV.Add(, win.title, win.class)
@@ -1659,15 +1747,23 @@ ClosePickerGui() {
 ; ============================================================
 SelectFromList(ctrl, *) {
     global WindowPickerGui
-    
-    LV := WindowPickerGui["WindowLV"]
-    
-    row := LV.GetNext(0, "Focused")
+
+    row := WindowPickerGui["WindowLV"].GetNext(0, "Focused")
     if (row = 0) {
         MsgBox(L("Messages", "965"), L("Messages", "995"), "Icon! 4096")
         return
     }
-    
+    SelectPickerRow(row)
+}
+
+; ============================================================
+; row stammt vom Doppelklick-Event; 0 = Klick auf Leerraum → nichts tun
+SelectPickerRow(row) {
+    global WindowPickerGui
+
+    if (row = 0)
+        return
+
     selectedWin := WindowPickerGui.windowList[row]
     WindowPickerGui.Destroy()
     WindowPickerGui := ""
@@ -1816,6 +1912,13 @@ DoAddRule(*) {
     matchType := (matchChoice = L("CaptureWindow", "550")) ? "class" : "title"
     matchValue := (matchType = "class") ? CaptureClass : CaptureTitle
 
+    ; Fenster ohne Titel: leerer Match würde nie greifen und beim nächsten
+    ; Start von LoadRules() kommentarlos verworfen → ablehnen
+    if (matchValue = "") {
+        MsgBox(L("Messages", "994"), L("Messages", "980"), "Icon! 4096")
+        return
+    }
+
     ; Zielwerte validieren (leere/ungültige Felder abfangen)
     targetX := 0, targetY := 0, targetW := 0, targetH := 0
     if (!ValidateRuleInput(doMaximize, &targetX, &targetY, &targetW, &targetH))
@@ -1861,7 +1964,7 @@ DoAddRule(*) {
     
     MyGui.Destroy()
     MyGui := ""
-    TrayTip(AppName, L("Messages", msgKey) " " displayName, 1)
+    TrayTip(L("Messages", msgKey) " " displayName, AppName, 1)
     
     ReturnToManagerOrResume()
 }
@@ -1884,16 +1987,26 @@ ResetProcessedForMatch(matchValue, matchType) {
 ; ============================================================
 ; Liefert alle (hwnd, rule)-Paare passender Fenster.
 ; Klasse/Titel werden pro Fenster nur einmal gelesen → ≤2×M Win*-Aufrufe statt N×M.
+; Eigene Fenster (Dialoge, Splash) werden nie angefasst.
 ; ============================================================
 GetMatchingWindows() {
     global WindowRules
+    static myPid := DllCall("GetCurrentProcessId", "UInt")
 
     matches := []
+
+    ; Aktive Regeln vorfiltern – ohne aktive Regel entfällt der Fenster-Scan komplett
+    enabledRules := []
+    for rule in WindowRules {
+        if (rule.enabled)
+            enabledRules.Push(rule)
+    }
+    if (enabledRules.Length = 0)
+        return matches
+
     for hwnd in WinGetList() {
         wclass := "", wtitle := "", haveClass := false, haveTitle := false
-        for rule in WindowRules {
-            if (!rule.enabled)
-                continue
+        for rule in enabledRules {
             matched := false
             try {
                 if (rule.matchType = "class") {
@@ -1910,8 +2023,15 @@ GetMatchingWindows() {
                     matched := (wtitle != "" && InStr(wtitle, rule.match))
                 }
             }
-            if (matched)
+            if (matched) {
+                ; Eigene Fenster ausschließen (z. B. Dialoge, deren Titel eine
+                ; Titel-Regel zufällig trifft) – Prüfung nur im seltenen Trefferfall
+                isOwn := false
+                try isOwn := (WinGetPID(hwnd) = myPid)
+                if (isOwn)
+                    break
                 matches.Push({hwnd: hwnd, rule: rule})
+            }
         }
     }
     return matches
@@ -1924,13 +2044,17 @@ CheckWindows() {
     if (GlobalPaused)
         return
 
-    ; Verwaiste Handles periodisch aufräumen (~60 Sekunden)
+    ; Verwaiste Handles periodisch aufräumen (~60 Sekunden). Neben geschlossenen
+    ; Fenstern auch recycelte Handles erkennen: Windows vergibt HWNDs neu – hat
+    ; sich die Fensterklasse geändert, gehört das Handle zu einem anderen Fenster.
     static lastCleanup := 0
     if (A_TickCount - lastCleanup > 60000) {
         lastCleanup := A_TickCount
         stale := []
-        for hwnd, _ in ProcessedWindows {
-            if !WinExist("ahk_id " hwnd)
+        for hwnd, wclass in ProcessedWindows {
+            keep := false
+            try keep := WinExist("ahk_id " hwnd) && (WinGetClass(hwnd) = wclass)
+            if (!keep)
                 stale.Push(hwnd)
         }
         for hwnd in stale
@@ -1945,7 +2069,7 @@ CheckWindows() {
 
     ; Ein Sammel-TrayTip pro Tick statt einer Meldung pro Fenster
     if (appliedCount > 0)
-        TrayTip(AppName, L("Messages", "946") " " appliedCount, 1)
+        TrayTip(L("Messages", "946") " " appliedCount, AppName, 1)
 }
 
 ; ============================================================
@@ -1955,17 +2079,22 @@ ApplyRule(hwnd, rule) {
     if (ProcessedWindows.Has(hwnd))
         return false
 
+    ; Klasse als Map-Wert merken – der Cleanup in CheckWindows() erkennt daran
+    ; recycelte Handles (gleiches HWND, inzwischen anderes Fenster)
+    wclass := ""
+    try wclass := WinGetClass(hwnd)
+
     try {
         if (rule.maximize)
             WinMaximize(hwnd)
         else
             WinMove(rule.x, rule.y, rule.w, rule.h, hwnd)
-        ProcessedWindows[hwnd] := true
+        ProcessedWindows[hwnd] := wclass
         return true
     } catch {
         ; Dauerhaft nicht verschiebbares Fenster (z.B. erhöhter Prozess):
         ; markieren, damit es nicht alle 500 ms erneut erfolglos versucht wird.
-        ProcessedWindows[hwnd] := true
+        ProcessedWindows[hwnd] := wclass
         return false
     }
 }

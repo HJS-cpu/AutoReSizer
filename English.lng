@@ -1,12 +1,12 @@
 ﻿; ============================================================
 ; AutoReSizer - Language File English
-; Version: 1.6.0
+; Version: 1.6.1
 ; ============================================================
 
 [Info]
 LanguageName=English
 LanguageCode=en
-Author=test
+Author=HJS
 
 ; ============================================================
 ; General / Tray Menu (100-199)
@@ -28,7 +28,7 @@ Author=test
 200=About
 205=Version
 210=by
-215=GitHub:
+215=WWW:
 220=E-Mail:
 225=OK
 230=English language file by HJS
@@ -45,6 +45,7 @@ Author=test
 316=ESC = Cancel
 317=(not set)
 318=Capture Hotkey
+319=Needs Ctrl/Alt/Shift/Win
 330=Windows Startup
 335=Start with Windows
 340=OK
@@ -174,4 +175,5 @@ Author=test
 991=Autostart error:
 992=Hotkey error:
 993=Please enter valid numbers for X, Y, width and height.
+994=The window has no title. Please match by class.
 995=Error

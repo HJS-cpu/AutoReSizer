@@ -1,6 +1,6 @@
 ﻿; ============================================================
 ; AutoReSizer - Sprachdatei Deutsch
-; Version: 1.6.0
+; Version: 1.6.1
 ; ============================================================
 
 [Info]
@@ -28,7 +28,7 @@ Author=HJS
 200=Über
 205=Version
 210=von
-215=GitHub:
+215=WWW:
 220=E-Mail:
 225=OK
 230=Deutsche Sprachdatei von HJS
@@ -45,6 +45,7 @@ Author=HJS
 316=ESC = Abbrechen
 317=(nicht gesetzt)
 318=Hotkey aufnehmen
+319=Strg/Alt/Shift/Win nötig
 330=Windows-Start
 335=Mit Windows starten
 340=OK
@@ -174,4 +175,5 @@ Author=HJS
 991=Autostart-Fehler:
 992=Hotkey-Fehler:
 993=Bitte gültige Zahlenwerte für X, Y, Breite und Höhe eingeben.
+994=Das Fenster hat keinen Titel. Bitte Erkennung über Klasse wählen.
 995=Fehler

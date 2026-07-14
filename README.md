@@ -78,6 +78,16 @@ AutoReSizer/
 
 ## Changelog
 
+### Version 1.6.1
+- Rules are no longer applied in the background while the rules manager is open
+- Hotkey capture now requires a modifier key (except F1–F12) — plain keys like a letter or Space can no longer be hijacked system-wide
+- INI file is now stored as UTF-16: rule matches/names with special characters (e.g. •, →, emoji) no longer break silently
+- Fixed a possible error dialog when closing Settings during a running hotkey capture
+- Fixed swapped title/text in tray notifications; double-clicking an empty list area no longer opens the previously focused entry
+- Windows reusing a recycled window handle are no longer skipped; AutoReSizer's own dialogs are excluded from rule matching
+- **Performance:** no background window scan while no rules are active, active-window polling only runs while the capture hotkey is enabled
+- More robustness: missing icon DLL no longer causes error cascades, quoted autostart path, no exit when language files are missing, English fallback on first run
+
 ### Version 1.6.0
 - Fixed a crash when a position/size field (X/Y/W/H) was left empty in the rule dialogs
 - Configurable hotkeys can no longer silently override the built-in **Stay on Top** hotkey (`Ctrl+Win+Space`)

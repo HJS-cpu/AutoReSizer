@@ -18,9 +18,16 @@
 - Compact Design: Sleek, modern user interface
 
 
-Current Version: v1.6.0
+Current Version: v1.6.1
 
 Version history:
+
+Version 1.6.1
++ Rules pause correctly while the rules manager is open
++ Hotkey capture now requires a modifier key (except F1-F12)
++ INI stored as UTF-16: special characters in rules no longer break
++ Many robustness fixes (tray notifications, recycled window handles,
+  missing DLL, autostart path, first-run language fallback)
 
 Version 1.6.0
 + Fixed crashes on empty position/size fields and on corrupted INI files
