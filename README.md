@@ -2,7 +2,7 @@
 
 A modern window management tool for Windows that automatically positions and resizes windows based on user-defined rules.
 
-[![Release](https://img.shields.io/github/v/release/HJS-cpu/AutoReSizer)](https://github.com/HJS-cpu/AutoReSizer/releases) [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2.0-green)](https://www.autohotkey.com/) [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](license.txt)
+[![Release](https://img.shields.io/github/v/release/HJS-Lab/AutoReSizer)](https://github.com/HJS-Lab/AutoReSizer/releases) [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2.0-green)](https://www.autohotkey.com/) [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](license.txt)
 
 ## Features
 
@@ -138,7 +138,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 - **Author:** HJS
 - **Contact:** autoresizer@gmx.com
-- **GitHub:** https://github.com/HJS-cpu/AutoReSizer
+- **GitHub:** https://github.com/HJS-Lab/AutoReSizer
 
 ---
 

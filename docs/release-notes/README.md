@@ -2,7 +2,7 @@
 
 Archived descriptions for each published GitHub release, harmonized to the
 format introduced with **v1.6.0**. They mirror the release pages at
-<https://github.com/HJS-cpu/AutoReSizer/releases>.
+<https://github.com/HJS-Lab/AutoReSizer/releases>.
 
 The notes for the current release are also kept in
 [`../../RELEASE_NOTES.md`](../../RELEASE_NOTES.md), which the CI workflow

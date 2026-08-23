@@ -11,7 +11,7 @@ FileEncoding "UTF-8"
 global AppName := "AutoReSizer"
 global AppVersion := "1.6.1"
 global AppAuthor := "HJS"
-global AppGitHub := "https://github.com/HJS-cpu/AutoReSizer"
+global AppGitHub := "https://github.com/HJS-Lab/AutoReSizer"
 global AppEmail := "autoresizer@gmx.com"
 
 global WindowRules := []
